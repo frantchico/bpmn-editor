@@ -87,10 +87,7 @@ const BpmnEditor = React.forwardRef<BpmnEditorHandles, BpmnEditorComponentProps>
 
         // Inicializar o modeler BPMN
         const modeler = new BpmnModeler({
-          container: containerRef.current,
-          keyboard: {
-            bindTo: document
-          }
+          container: containerRef.current
         })
 
         modelerRef.current = modeler
