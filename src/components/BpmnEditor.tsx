@@ -1,8 +1,19 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState, useImperativeHandle } from 'react'
 import BpmnModeler from 'bpmn-js/lib/Modeler'
 import 'bpmn-js/dist/assets/diagram-js.css'
 import 'bpmn-js/dist/assets/bpmn-font/css/bpmn-embedded.css'
 import type { BpmnEditorProps, ElementProperties } from '@/types'
+
+// Define the handles exposed by useImperativeHandle
+export interface BpmnEditorHandles {
+  save: () => Promise<void>;
+  export: (format: 'bpmn' | 'svg' | 'png') => Promise<void>;
+  updateElementProperties: (properties: Partial<ElementProperties>) => void;
+  getModeler: () => BpmnModeler | null;
+  // Add other methods if exposed, e.g., for canvas manipulation
+  // zoom: (step?: number) => void;
+  // fitViewport: () => void;
+}
 
 // BPMN XML básico para inicializar o editor
 const initialBpmnXml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -19,17 +30,19 @@ const initialBpmnXml = `<?xml version="1.0" encoding="UTF-8"?>
   </bpmndi:BPMNDiagram>
 </bpmn:definitions>`
 
-interface BpmnEditorComponentProps extends BpmnEditorProps {
+export interface BpmnEditorComponentProps extends BpmnEditorProps {
   onElementSelect?: (element: ElementProperties | null) => void
 }
 
-const BpmnEditor: React.FC<BpmnEditorComponentProps> = ({
-  modelId,
-  initialXml = initialBpmnXml,
-  onSave,
-  onExport,
-  onElementSelect
-}) => {
+const BpmnEditor = React.forwardRef<BpmnEditorHandles, BpmnEditorComponentProps>(
+  (props, ref) => {
+    const {
+      modelId,
+      initialXml = initialBpmnXml,
+      onSave,
+      onExport,
+      onElementSelect
+    } = props;
   const containerRef = useRef<HTMLDivElement>(null)
   const modelerRef = useRef<BpmnModeler | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -187,7 +200,11 @@ const BpmnEditor: React.FC<BpmnEditorComponentProps> = ({
   }
 
   // Expor métodos para o componente pai
-  React.useImperativeHandle(modelerRef, () => ({
+  useImperativeHandle(ref, () => ({
+    // Adicionar o containerRef para acesso externo se necessário
+    // container: containerRef.current,
+    // Adicionar o containerRef para acesso externo se necessário
+    // container: containerRef.current,
     save: handleSave,
     export: handleExport,
     updateElementProperties,
@@ -228,7 +245,10 @@ const BpmnEditor: React.FC<BpmnEditorComponentProps> = ({
       />
     </div>
   )
-}
+});
 
-export default BpmnEditor
+
+const MemoizedBpmnEditor = React.memo(BpmnEditor);
+MemoizedBpmnEditor.displayName = 'BpmnEditor';
+export default MemoizedBpmnEditor;
 

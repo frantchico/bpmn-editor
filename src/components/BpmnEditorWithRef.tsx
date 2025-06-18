@@ -1,16 +1,10 @@
 import React, { forwardRef, useImperativeHandle } from 'react'
-import BpmnEditor from './BpmnEditor'
-import type { BpmnEditorProps, ElementProperties } from '@/types'
+import BpmnEditor, { type BpmnEditorHandles, type BpmnEditorComponentProps } from './BpmnEditor'
+import type { ElementProperties } from '@/types'
+import type BpmnModeler from 'bpmn-js/lib/Modeler'; // Ensure BpmnModeler type is available
 
-export interface BpmnEditorRef {
-  save: () => Promise<void>
-  export: (format: 'bpmn' | 'svg' | 'png') => Promise<void>
-  updateElementProperties: (properties: Partial<ElementProperties>) => void
-  getModeler: () => any
-}
-
-const BpmnEditorWithRef = forwardRef<BpmnEditorRef, BpmnEditorProps>((props, ref) => {
-  const editorRef = React.useRef<any>(null)
+const BpmnEditorWithRef = forwardRef<BpmnEditorHandles, BpmnEditorComponentProps>((props, ref) => {
+  const editorRef = React.useRef<BpmnEditorHandles | null>(null)
 
   useImperativeHandle(ref, () => ({
     save: async () => {
@@ -29,7 +23,8 @@ const BpmnEditorWithRef = forwardRef<BpmnEditorRef, BpmnEditorProps>((props, ref
       }
     },
     getModeler: () => {
-      return editorRef.current?.getModeler?.()
+      const modeler = editorRef.current?.getModeler?.();
+      return modeler || null; // Ensure null is returned if undefined
     }
   }))
 

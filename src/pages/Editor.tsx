@@ -3,15 +3,16 @@ import { useParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Save, Download, Upload, Undo, Redo, ZoomIn, ZoomOut } from 'lucide-react'
-import BpmnEditorPlaceholder from '@/components/BpmnEditorPlaceholder'
+import BpmnEditorWithRef from '@/components/BpmnEditorWithRef'
 import PropertiesPanel from '@/components/PropertiesPanel'
 import type { ElementProperties } from '@/types'
+import type { BpmnEditorHandles } from '@/components/BpmnEditor'
 
 const Editor: React.FC = () => {
   const { id } = useParams<{ id: string }>()
   const [selectedElement, setSelectedElement] = useState<ElementProperties | null>(null)
   const [modelName, setModelName] = useState(id ? `Modelo ${id}` : 'Novo Modelo')
-  const editorRef = useRef<any>(null)
+  const editorRef = useRef<BpmnEditorHandles>(null)
 
   const handleSave = (xml: string) => {
     console.log('Salvando modelo:', xml)
@@ -68,6 +69,14 @@ const Editor: React.FC = () => {
     input.click()
   }
 
+  const handleToolbarSave = () => {
+    editorRef.current?.save()
+  }
+
+  const handleToolbarExport = () => {
+    editorRef.current?.export('bpmn')
+  }
+
   return (
     <div className="h-full flex flex-col">
       {/* Toolbar */}
@@ -79,37 +88,35 @@ const Editor: React.FC = () => {
           </div>
           
           <div className="flex items-center space-x-2">
-            <Button variant="ghost" size="sm" title="Desfazer">
+            <Button variant="ghost" size="sm" title="Desfazer" className={undefined}>
               <Undo className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="sm" title="Refazer">
+            <Button variant="ghost" size="sm" title="Refazer" className={undefined}>
               <Redo className="h-4 w-4" />
             </Button>
             <div className="w-px h-6 bg-gray-300 mx-2" />
-            <Button variant="ghost" size="sm" title="Diminuir zoom">
+            <Button variant="ghost" size="sm" title="Diminuir zoom" className={undefined}>
               <ZoomOut className="h-4 w-4" />
             </Button>
             <span className="text-sm text-gray-600">100%</span>
-            <Button variant="ghost" size="sm" title="Aumentar zoom">
+            <Button variant="ghost" size="sm" title="Aumentar zoom" className={undefined}>
               <ZoomIn className="h-4 w-4" />
             </Button>
             <div className="w-px h-6 bg-gray-300 mx-2" />
-            <Button variant="outline" size="sm" onClick={handleImport}>
+            <Button variant="outline" size="sm" onClick={handleImport} className={undefined}>
               <Upload className="h-4 w-4 mr-2" />
               Importar
             </Button>
             <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => editorRef.current?.export('bpmn')}
-            >
+              variant="outline"
+              size="sm"
+              onClick={handleToolbarExport} className={undefined}            >
               <Download className="h-4 w-4 mr-2" />
               Exportar
             </Button>
             <Button 
-              size="sm" 
-              onClick={() => editorRef.current?.save()}
-            >
+              size="sm"
+              onClick={handleToolbarSave} className={undefined} variant={undefined}            >
               <Save className="h-4 w-4 mr-2" />
               Salvar
             </Button>
@@ -122,7 +129,13 @@ const Editor: React.FC = () => {
         <div className="flex-1 bg-gray-50">
           <Card className="h-full m-4">
             <CardContent className="h-full p-0">
-              <BpmnEditorPlaceholder />
+              <BpmnEditorWithRef
+                ref={editorRef}
+                modelId={id}
+                onSave={handleSave}
+                onExport={handleExport}
+                onElementSelect={handleElementSelect}
+              />
             </CardContent>
           </Card>
         </div>

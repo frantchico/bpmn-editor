@@ -73,12 +73,12 @@ const Models: React.FC = () => {
           <p className="text-gray-600 mt-1">Gerencie todos os seus modelos de processo</p>
         </div>
         <div className="flex items-center space-x-2">
-          <Button variant="outline" onClick={handleImport}>
+          <Button variant="outline" onClick={handleImport} className={undefined} size={undefined}>
             <Upload className="h-4 w-4 mr-2" />
             Importar
           </Button>
           <Link to="/editor">
-            <Button>
+            <Button className={undefined} variant={undefined} size={undefined}>
               <Plus className="h-4 w-4 mr-2" />
               Novo Modelo
             </Button>
@@ -86,12 +86,12 @@ const Models: React.FC = () => {
         </div>
       </div>
 
-      <Card>
-        <CardHeader>
+      <Card className={undefined}>
+        <CardHeader className={undefined}>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>Biblioteca de Modelos</CardTitle>
-              <CardDescription>
+              <CardTitle className={undefined}>Biblioteca de Modelos</CardTitle>
+              <CardDescription className={undefined}>
                 {filteredModels.length} modelo{filteredModels.length !== 1 ? 's' : ''} encontrado{filteredModels.length !== 1 ? 's' : ''}
               </CardDescription>
             </div>
@@ -102,17 +102,16 @@ const Models: React.FC = () => {
                   placeholder="Buscar modelos..."
                   className="pl-10 w-64"
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
+                  onChange={(e: { target: { value: React.SetStateAction<string> } }) => setSearchTerm(e.target.value)} type={undefined}                />
               </div>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" className={undefined}>
                 <Filter className="h-4 w-4 mr-2" />
                 Filtros
               </Button>
             </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className={undefined}>
           {filteredModels.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredModels.map((model) => (
@@ -120,7 +119,7 @@ const Models: React.FC = () => {
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between">
                       <FileText className="h-8 w-8 text-blue-600" />
-                      <Badge variant="secondary">v{model.version}</Badge>
+                      <Badge variant="secondary" className={undefined}>v{model.version}</Badge>
                     </div>
                     <CardTitle className="text-lg">{model.name}</CardTitle>
                     <CardDescription className="text-sm">
@@ -144,24 +143,22 @@ const Models: React.FC = () => {
                       <div className="flex items-center justify-between pt-2">
                         <div className="flex items-center space-x-1">
                           <Button 
-                            variant="ghost" 
+                            variant="ghost"
                             size="sm"
                             onClick={() => handleExport(model)}
-                            title="Exportar"
-                          >
+                            title="Exportar" className={undefined}                          >
                             <Download className="h-4 w-4" />
                           </Button>
                           <Button 
-                            variant="ghost" 
+                            variant="ghost"
                             size="sm"
                             onClick={() => handleDelete(model.id)}
-                            title="Deletar"
-                          >
+                            title="Deletar" className={undefined}                          >
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
                         <Link to={`/editor/${model.id}`}>
-                          <Button size="sm">
+                          <Button size="sm" className={undefined} variant={undefined}>
                             <Edit className="h-4 w-4 mr-1" />
                             Abrir
                           </Button>
@@ -192,12 +189,12 @@ const Models: React.FC = () => {
                 </div>
               )}
               <div className="flex items-center justify-center space-x-2">
-                <Button onClick={handleImport} variant="outline">
+                <Button onClick={handleImport} variant="outline" className={undefined} size={undefined}>
                   <Upload className="h-4 w-4 mr-2" />
                   Importar Modelo
                 </Button>
                 <Link to="/editor">
-                  <Button>
+                  <Button className={undefined} variant={undefined} size={undefined}>
                     <Plus className="h-4 w-4 mr-2" />
                     Criar Modelo
                   </Button>

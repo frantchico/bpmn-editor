@@ -58,7 +58,7 @@ const Dashboard: React.FC = () => {
           <p className="text-gray-600 mt-1">Gerencie seus modelos BPMN</p>
         </div>
         <Link to="/editor">
-          <Button>
+          <Button className={undefined} variant={undefined} size={undefined}>
             <Plus className="h-4 w-4 mr-2" />
             Novo Modelo
           </Button>
@@ -66,12 +66,12 @@ const Dashboard: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card>
+        <Card className={undefined}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total de Modelos</CardTitle>
             <FileText className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
+          <CardContent className={undefined}>
             <div className="text-2xl font-bold">{stats.totalModels}</div>
             <p className="text-xs text-muted-foreground">
               Modelos armazenados
@@ -79,12 +79,12 @@ const Dashboard: React.FC = () => {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className={undefined}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Modelos Recentes</CardTitle>
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
+          <CardContent className={undefined}>
             <div className="text-2xl font-bold">{stats.recentModels}</div>
             <p className="text-xs text-muted-foreground">
               Editados esta semana
@@ -92,12 +92,12 @@ const Dashboard: React.FC = () => {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className={undefined}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Colaboradores</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
+          <CardContent className={undefined}>
             <div className="text-2xl font-bold">{stats.collaborators}</div>
             <p className="text-xs text-muted-foreground">
               Usuários ativos
@@ -106,14 +106,14 @@ const Dashboard: React.FC = () => {
         </Card>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Modelos Recentes</CardTitle>
-          <CardDescription>
+      <Card className={undefined}>
+        <CardHeader className={undefined}>
+          <CardTitle className={undefined}>Modelos Recentes</CardTitle>
+          <CardDescription className={undefined}>
             Seus modelos BPMN editados recentemente
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className={undefined}>
           <div className="space-y-4">
             {models.slice(0, 5).map((model) => (
               <div key={model.id} className="flex items-center justify-between p-3 border rounded-lg">
@@ -127,7 +127,7 @@ const Dashboard: React.FC = () => {
                 <div className="flex items-center space-x-2">
                   <span className="text-xs bg-gray-100 px-2 py-1 rounded">v{model.version}</span>
                   <Link to={`/editor/${model.id}`}>
-                    <Button variant="outline" size="sm">Editar</Button>
+                    <Button variant="outline" size="sm" className={undefined}>Editar</Button>
                   </Link>
                 </div>
               </div>
@@ -139,7 +139,7 @@ const Dashboard: React.FC = () => {
                 <p className="text-lg font-medium mb-2">Nenhum modelo encontrado</p>
                 <p className="text-sm mb-4">Comece criando seu primeiro modelo BPMN</p>
                 <Link to="/editor">
-                  <Button>
+                  <Button className={undefined} variant={undefined} size={undefined}>
                     <Plus className="h-4 w-4 mr-2" />
                     Criar Primeiro Modelo
                   </Button>
