@@ -4,6 +4,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import runMiddleware from '@/lib/cors'; // Adjust path if needed
 import Cors from 'cors'; // Added this import based on usage below
+import { z } from 'zod';
 
 type BpmnModel = {
   id: string;
@@ -28,6 +29,14 @@ async function getModels(): Promise<BpmnModel[]> {
 async function saveModels(models: BpmnModel[]): Promise<void> {
   await fs.writeFile(modelsFilePath, JSON.stringify(models, null, 2), 'utf-8');
 }
+
+const UpdateModelSchema = z.object({
+  name: z.string().min(1, { message: "Name cannot be empty" }).optional(),
+  xml: z.string().min(1, { message: "XML content cannot be empty" }).optional(),
+}).refine(data => data.name || data.xml, {
+  message: "Either name or xml must be provided for an update",
+  // path: ["name", "xml"], // Not strictly needed for top-level error, but good for field-specific
+});
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   await runMiddleware(req, res, Cors({
@@ -55,13 +64,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       res.status(500).json({ message: 'Error retrieving model' });
     }
   } else if (req.method === 'PUT') {
-    try {
-      const { name, xml } = req.body;
-      // Basic validation: at least one updatable field should be present
-      if (!name && !xml) {
-        return res.status(400).json({ message: 'Name or XML must be provided for update' });
-      }
+    const validationResult = UpdateModelSchema.safeParse(req.body);
+    if (!validationResult.success) {
+      return res.status(400).json({
+        message: 'Invalid request body for update',
+        errors: validationResult.error.flatten().fieldErrors
+      });
+    }
 
+    const { name, xml } = validationResult.data; // Use validated data
+
+    try {
       let models = await getModels();
       const modelIndex = models.findIndex(m => m.id === id);
 
