@@ -92,46 +92,65 @@ const BpmnEditor = React.forwardRef<BpmnEditorHandles, BpmnEditorComponentProps>
 
         modelerRef.current = modeler
 
-        // Carregar o XML inicial
-        await modeler.importXML(initialXml)
+        requestAnimationFrame(async () => {
+          if (!mounted || !modelerRef.current) return // Add modelerRef.current check for safety
 
-        if (!mounted) return
+          const modelerInstance = modelerRef.current; // Use a local var for type safety if needed
 
-        // Configurar eventos
-        const eventBus = modeler.get('eventBus')
-        
-        // Evento de seleção de elemento
-        eventBus.on('selection.changed', (event: any) => {
-          if (!mounted) return
-          
-          const { newSelection } = event
-          if (newSelection.length > 0) {
-            const element = newSelection[0]
-            const businessObject = element.businessObject
+          try {
+            // Carregar o XML inicial
+            await modelerInstance.importXML(initialXml)
+
+            if (!mounted) return
+
+            // Configurar eventos
+            const eventBus = modelerInstance.get('eventBus')
             
-            const elementProps: ElementProperties = {
-              id: businessObject.id,
-              name: businessObject.name || '',
-              documentation: businessObject.documentation?.[0]?.text || ''
+            // Evento de seleção de elemento
+            eventBus.on('selection.changed', (event: any) => {
+              if (!mounted) return
+
+              const { newSelection } = event
+              if (newSelection.length > 0) {
+                const element = newSelection[0]
+                console.log('Selected element type:', element.type, 'ID:', element.id); // Added logging
+                const businessObject = element.businessObject
+
+                const elementName = businessObject.name || '(No name)';
+                const elementDocumentation = businessObject.documentation?.[0]?.text || '(No documentation)';
+
+                const elementProps: ElementProperties = {
+                  id: businessObject.id,
+                  name: elementName,
+                  documentation: elementDocumentation
+                }
+
+                onElementSelectRef.current?.(elementProps)
+              } else {
+                onElementSelectRef.current?.(null)
+              }
+            })
+
+            // Ajustar zoom para caber na tela
+            const canvas = modelerInstance.get('canvas')
+            canvas.zoom('fit-viewport')
+
+            if (mounted) {
+              setIsLoading(false)
             }
-            
-            onElementSelectRef.current?.(elementProps)
-          } else {
-            onElementSelectRef.current?.(null)
+          } catch (err) {
+            console.error('Erro ao carregar diagrama BPMN:', err)
+            if (mounted) {
+              setError(`Erro ao carregar o diagrama BPMN: ${err.message || err}`)
+              setIsLoading(false)
+            }
           }
         })
-
-        // Ajustar zoom para caber na tela
-        const canvas = modeler.get('canvas')
-        canvas.zoom('fit-viewport')
-
-        if (mounted) {
-          setIsLoading(false)
-        }
       } catch (err) {
-        console.error('Erro ao carregar diagrama BPMN:', err)
+        // This catch block is now for errors during modeler instantiation or pre-RAF setup
+        console.error('Erro ao inicializar o modeler BPMN:', err)
         if (mounted) {
-          setError(`Erro ao carregar o diagrama BPMN: ${err.message || err}`)
+          setError(`Erro ao inicializar o modeler BPMN: ${err.message || err}`)
           setIsLoading(false)
         }
       }
