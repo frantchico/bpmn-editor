@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  bpmn-modeler:
+    build: .
+    ports:
+      - "3000:80"
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped
+    
+  # Opcional: Adicionar banco de dados para versão futura
+  # postgres:
+  #   image: postgres:15-alpine
+  #   environment:
+  #     POSTGRES_DB: bpmn_modeler
+  #     POSTGRES_USER: bpmn_user
+  #     POSTGRES_PASSWORD: bpmn_password
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   restart: unless-stopped
+
+# volumes:
+#   postgres_data:
+
