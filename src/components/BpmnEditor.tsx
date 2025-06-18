@@ -45,8 +45,14 @@ const BpmnEditor = React.forwardRef<BpmnEditorHandles, BpmnEditorComponentProps>
     } = props;
   const containerRef = useRef<HTMLDivElement>(null)
   const modelerRef = useRef<BpmnModeler | null>(null)
+  const onElementSelectRef = useRef(onElementSelect)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  // Keep the ref updated if the prop changes
+  useEffect(() => {
+    onElementSelectRef.current = onElementSelect
+  }, [onElementSelect])
 
   useEffect(() => {
     let mounted = true
@@ -67,10 +73,17 @@ const BpmnEditor = React.forwardRef<BpmnEditorHandles, BpmnEditorComponentProps>
           }
         }
 
-        // Aguardar o DOM estar pronto
-        await new Promise(resolve => setTimeout(resolve, 100))
-
         if (!mounted) return
+
+        // Check if containerRef.current is null
+        if (!containerRef.current) {
+          console.error('Failed to initialize BPMN editor: Container not found.')
+          if (mounted) {
+            setError('Failed to initialize BPMN editor: Container not found.')
+            setIsLoading(false)
+          }
+          return
+        }
 
         // Inicializar o modeler BPMN
         const modeler = new BpmnModeler({
@@ -105,9 +118,9 @@ const BpmnEditor = React.forwardRef<BpmnEditorHandles, BpmnEditorComponentProps>
               documentation: businessObject.documentation?.[0]?.text || ''
             }
             
-            onElementSelect?.(elementProps)
+            onElementSelectRef.current?.(elementProps)
           } else {
-            onElementSelect?.(null)
+            onElementSelectRef.current?.(null)
           }
         })
 
@@ -121,7 +134,7 @@ const BpmnEditor = React.forwardRef<BpmnEditorHandles, BpmnEditorComponentProps>
       } catch (err) {
         console.error('Erro ao carregar diagrama BPMN:', err)
         if (mounted) {
-          setError('Erro ao carregar o diagrama BPMN')
+          setError(`Erro ao carregar o diagrama BPMN: ${err.message || err}`)
           setIsLoading(false)
         }
       }
@@ -141,7 +154,7 @@ const BpmnEditor = React.forwardRef<BpmnEditorHandles, BpmnEditorComponentProps>
         modelerRef.current = null
       }
     }
-  }, [initialXml, onElementSelect])
+  }, [initialXml]) // onElementSelect is removed from dependencies
 
   const handleSave = async () => {
     if (!modelerRef.current) return
