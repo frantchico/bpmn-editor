@@ -15,26 +15,27 @@ const Dashboard: React.FC = () => {
   })
 
   useEffect(() => {
-    const loadData = () => {
-      const allModels = modelStorage.getModels()
-      setModels(allModels)
+    const loadData = async () => {
+      const fetchedModels = await modelStorage.getModels();
+      const allModels = Array.isArray(fetchedModels) ? fetchedModels : [];
+      setModels(allModels);
       
       // Calcular estatísticas
-      const now = new Date()
-      const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-      const recentModels = allModels.filter(model => 
+      const now = new Date();
+      const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const recentModelsCount = allModels.filter(model =>
         new Date(model.updatedAt) > oneWeekAgo
-      ).length
+      ).length;
 
       setStats({
         totalModels: allModels.length,
-        recentModels,
+        recentModels: recentModelsCount,
         collaborators: 8
-      })
-    }
+      });
+    };
 
-    loadData()
-  }, [])
+    loadData();
+  }, []);
 
   const formatDate = (date: Date | string) => {
     const d = new Date(date)
