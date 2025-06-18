@@ -218,7 +218,8 @@ const BpmnEditor = React.forwardRef<BpmnEditorHandles, BpmnEditorComponentProps>
         }
 
         if (properties.documentation !== undefined) {
-          updates.documentation = properties.documentation ? [{ text: properties.documentation }] : []
+          const moddle = modelerRef.current.get('moddle');
+          updates.documentation = properties.documentation ? [moddle.create('bpmn:Documentation', { text: properties.documentation })] : [];
         }
 
         modeling.updateProperties(element, updates)
