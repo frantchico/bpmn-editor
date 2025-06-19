@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Skeleton } from '@/components/ui/skeleton';
 import toast from 'react-hot-toast'; // Changed to react-hot-toast
 import { Edit3, Trash2, PlusCircle, FileText, AlertTriangle, ArrowLeft } from 'lucide-react';
-import AreaForm from '@/components/AreaForm'; // Added import
+import { AreaForm } from '@/components/AreaForm'; // Changed to named import
 import SubAreaForm from '@/components/SubAreaForm'; // Added import
 import { SubAreaList } from '@/components/SubAreaList'; // Added import
 // Removed redundant SubArea import, it's already imported with Area, Project
