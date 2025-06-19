@@ -36,7 +36,18 @@ const setStoredItems = <T>(key: string, items: T[]): void => {
 
 export const projectService = {
   getProjects: (): Project[] => {
-    return getStoredItems<Project>(PROJECTS_KEY);
+    const projects = getStoredItems<Project>(PROJECTS_KEY);
+    const validProjects = projects.filter(p => p.id && typeof p.id === 'string');
+    // Ensure p.id is not just truthy but also a string, assuming IDs are strings.
+    // Adjust typeof p.id === 'string' if IDs can be numbers.
+
+    if (validProjects.length !== projects.length) {
+      console.warn("[projectService] Filtered out projects with missing or invalid IDs. Original count:", projects.length, "Valid count:", validProjects.length);
+      // For debugging, you might want to log the invalid projects:
+      // const invalidProjects = projects.filter(p => !(p.id && typeof p.id === 'string'));
+      // console.log("[projectService] Invalid projects removed:", invalidProjects);
+    }
+    return validProjects;
   },
 
   getProject: (id: string): Project | undefined => {
