@@ -41,9 +41,10 @@ export const areaService = {
   },
 
   createArea: (areaData: Omit<Area, 'id'>): Area => {
-    const { name, code, projectId } = areaData; // Ensure all necessary fields are destructured
-    const trimmedName = name.trim();
-    const trimmedCode = code.trim();
+    // Ensure all necessary fields are destructured, then safely trim name and code
+    const { projectId } = areaData;
+    const trimmedName = (areaData.name || '').trim();
+    const trimmedCode = (areaData.code || '').trim();
 
     if (!trimmedName) throw new Error("Area name cannot be empty.");
     if (!trimmedCode) throw new Error("Area code cannot be empty.");
