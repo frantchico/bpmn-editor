@@ -54,10 +54,10 @@ export const projectService = {
     if (!trimmedName) throw new Error("Project name cannot be empty.");
     if (!trimmedCode) throw new Error("Project code cannot be empty.");
 
-    if (projects.some(p => p.name.toLowerCase() === trimmedName.toLowerCase())) {
+    if (projects.some(p => p.name && p.name.toLowerCase() === trimmedName.toLowerCase())) {
       throw new Error(`A project with the name "${trimmedName}" already exists.`);
     }
-    if (projects.some(p => p.code.toLowerCase() === trimmedCode.toLowerCase())) {
+    if (projects.some(p => p.code && p.code.toLowerCase() === trimmedCode.toLowerCase())) {
       throw new Error(`A project with the code "${trimmedCode}" already exists.`);
     }
 
@@ -93,15 +93,18 @@ export const projectService = {
     if (newName === '') throw new Error("Project name cannot be empty.");
     if (newCode === '') throw new Error("Project code cannot be empty.");
 
+    const currentProjectNameLower = (currentProject.name || '').toLowerCase(); // Safe access for current project
+    const currentProjectCodeLower = (currentProject.code || '').toLowerCase();   // Safe access for current project
+
     // Check for duplicate name if name is changing
-    if (newName && newName.toLowerCase() !== currentProject.name.toLowerCase()) {
-      if (projects.some(p => p.id !== id && p.name.toLowerCase() === newName.toLowerCase())) {
+    if (newName && newName.toLowerCase() !== currentProjectNameLower) {
+      if (projects.some(p => p.id !== id && p.name && p.name.toLowerCase() === newName.toLowerCase())) { // Safe access for other projects
         throw new Error(`Another project with the name "${newName}" already exists.`);
       }
     }
     // Check for duplicate code if code is changing
-    if (newCode && newCode.toLowerCase() !== currentProject.code.toLowerCase()) {
-      if (projects.some(p => p.id !== id && p.code.toLowerCase() === newCode.toLowerCase())) {
+    if (newCode && newCode.toLowerCase() !== currentProjectCodeLower) {
+      if (projects.some(p => p.id !== id && p.code && p.code.toLowerCase() === newCode.toLowerCase())) { // Safe access for other projects
         throw new Error(`Another project with the code "${newCode}" already exists.`);
       }
     }
