@@ -1,0 +1,120 @@
+import { Project, Area, SubArea, Process } from '@/types'; // Ensure all are imported if used, though only Project is direct here
+import { generateId } from '@/lib/utils';
+import { modelStorage } from './modelStorage'; // For cascade delete
+
+const PROJECTS_KEY = 'wfstudio_projects';
+const AREAS_KEY = 'wfstudio_areas';
+const SUBAREAS_KEY = 'wfstudio_subareas';
+const PROCESSES_KEY = 'wfstudio_processes';
+// BPMN_MODELS_KEY_PREFIX is not used directly here anymore due to modelStorage
+
+const getStoredItems = <T>(key: string): T[] => {
+  if (typeof window === 'undefined') return [];
+  const item = window.localStorage.getItem(key);
+  try {
+    return item ? JSON.parse(item) : [];
+  } catch (e) {
+    console.error(`Error parsing localStorage key ${key}:`, e);
+    return [];
+  }
+};
+
+const setStoredItems = <T>(key: string, items: T[]): void => {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(key, JSON.stringify(items));
+  } catch (e) {
+    console.error(`Error setting localStorage key ${key}:`, e);
+  }
+};
+
+export const projectService = {
+  getProjects: (): Project[] => {
+    return getStoredItems<Project>(PROJECTS_KEY);
+  },
+
+  getProject: (id: string): Project | undefined => {
+    return projectService.getProjects().find(p => p.id === id);
+  },
+
+  createProject: (projectData: Pick<Project, 'name'>): Project => {
+    const projects = projectService.getProjects();
+    const trimmedName = projectData.name.trim();
+
+    if (!trimmedName) {
+      throw new Error("Project name cannot be empty.");
+    }
+    if (projects.some(p => p.name.toLowerCase() === trimmedName.toLowerCase())) {
+      throw new Error(`A project with the name "${trimmedName}" already exists.`);
+    }
+
+    const newProject: Project = {
+      id: generateId(),
+      name: trimmedName,
+    };
+    setStoredItems<Project>(PROJECTS_KEY, [...projects, newProject]);
+    return newProject;
+  },
+
+  updateProject: (id: string, updates: Partial<Pick<Project, 'name'>>): Project => { // Return Project, throw if not found
+    let projects = projectService.getProjects();
+    const projectIndex = projects.findIndex(p => p.id === id);
+
+    if (projectIndex === -1) {
+      throw new Error("Project not found for updating. It may have been deleted.");
+    }
+
+    const currentProject = projects[projectIndex];
+    const newTrimmedName = updates.name ? updates.name.trim() : currentProject.name;
+
+    if (updates.name && !newTrimmedName) {
+      throw new Error("Project name cannot be empty.");
+    }
+
+    // Only check for duplicate names if the name is actually changing
+    if (updates.name && newTrimmedName.toLowerCase() !== currentProject.name.toLowerCase()) {
+      if (projects.some(p => p.id !== id && p.name.toLowerCase() === newTrimmedName.toLowerCase())) {
+        throw new Error(`Another project with the name "${newTrimmedName}" already exists.`);
+      }
+    }
+
+    const updatedProject = { ...currentProject, name: newTrimmedName };
+    projects[projectIndex] = updatedProject;
+    setStoredItems<Project>(PROJECTS_KEY, projects);
+    return updatedProject;
+  },
+
+  deleteProject: (id: string): boolean => {
+    let currentProjects = projectService.getProjects();
+    const projectToDelete = currentProjects.find(p => p.id === id);
+    if (!projectToDelete) {
+        // console.warn(`Project with id ${id} not found for deletion.`);
+        return false; // Indicate not found or already deleted
+    }
+
+    currentProjects = currentProjects.filter(p => p.id !== id);
+    setStoredItems<Project>(PROJECTS_KEY, currentProjects);
+
+    let areas = getStoredItems<Area>(AREAS_KEY);
+    const projectAreas = areas.filter(a => a.projectId === id);
+    areas = areas.filter(a => a.projectId !== id);
+    setStoredItems<Area>(AREAS_KEY, areas);
+
+    let subAreas = getStoredItems<SubArea>(SUBAREAS_KEY);
+    const areaIdsToDelete = projectAreas.map(a => a.id);
+    const projectSubAreas = subAreas.filter(sa => areaIdsToDelete.includes(sa.areaId));
+    subAreas = subAreas.filter(sa => !areaIdsToDelete.includes(sa.areaId));
+    setStoredItems<SubArea>(SUBAREAS_KEY, subAreas);
+
+    let processes = getStoredItems<Process>(PROCESSES_KEY);
+    const subAreaIdsToDelete = projectSubAreas.map(sa => sa.id);
+    const projectProcesses = processes.filter(p => subAreaIdsToDelete.includes(p.subAreaId));
+    processes = processes.filter(p => !subAreaIdsToDelete.includes(p.subAreaId));
+    setStoredItems<Process>(PROCESSES_KEY, processes);
+
+    projectProcesses.forEach(proc => {
+        modelStorage.deleteModelsForProcess(proc.id);
+    });
+    return true;
+  },
+};

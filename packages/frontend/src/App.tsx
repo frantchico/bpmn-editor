@@ -1,24 +1,25 @@
-import React from 'react'
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
-import './App.css'
-import Layout from './components/Layout'
-import Dashboard from './pages/Dashboard'
-import Editor from './pages/Editor'
-import Models from './pages/Models'
+import './App.css';
+// import { Dashboard } from './pages/Dashboard'; // If Dashboard was the main page
+import { HierarchyManager } from './pages/HierarchyManager'; // Import the new manager
+import Layout from './components/Layout'; // Assuming a Layout component exists
+import { Toaster } from "@/components/ui/sonner"; // Import Toaster
 
-const App: React.FC = () => {
+function App() {
   return (
-    <Router>
-      <Layout>
+    <Layout> {/* Assuming Layout provides header, sidebar, main content area */}
+      {/*
+        If using React Router, this would be part of the routing setup.
+        For now, we directly render HierarchyManager.
+        Example:
         <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/editor" element={<Editor />} />
-          <Route path="/editor/:id" element={<Editor />} />
-          <Route path="/models" element={<Models />} />
+          <Route path="/" element={<HierarchyManager />} />
+          <Route path="/editor/:processId" element={<EditorPage />} /> // Example editor route
         </Routes>
-      </Layout>
-    </Router>
-  )
+      */}
+      <HierarchyManager />
+      <Toaster richColors position="top-right" /> {/* Add Toaster here */}
+    </Layout>
+  );
 }
 
-export default App
+export default App;
