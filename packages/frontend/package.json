@@ -1,4 +1,3 @@
-<json>
 {
   "name": "@bpmn-monorepo/frontend",
   "private": true,
@@ -97,4 +96,3 @@
     "vitest": "^3.2.4"
   }
 }
-</json>
