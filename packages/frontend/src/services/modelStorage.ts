@@ -6,11 +6,17 @@ const BPMN_MODELS_METADATA_KEY = 'wfstudio_bpmn_models_metadata';
 const BPMN_MODEL_XML_KEY_PREFIX = 'wfstudio_bpmn_';
 
 // Helper to get metadata for all BPMN models
-const getModelsMetadata = (): BpmnModel[] => {
+const getModelsMetadata = (): Omit<BpmnModel, 'xml'>[] => { // Adjusted to reflect it stores metadata without full XML
   if (typeof window === 'undefined') return [];
   const item = window.localStorage.getItem(BPMN_MODELS_METADATA_KEY);
   try {
-    return item ? JSON.parse(item) : [];
+    // Ensure dates are parsed correctly if stored as strings
+    const models = item ? JSON.parse(item) : [];
+    return models.map((model: any) => ({
+      ...model,
+      createdAt: model.createdAt ? new Date(model.createdAt) : new Date(),
+      updatedAt: model.updatedAt ? new Date(model.updatedAt) : new Date(),
+    }));
   } catch (e) {
     console.error(`Error parsing localStorage key ${BPMN_MODELS_METADATA_KEY}:`, e);
     return [];
@@ -18,7 +24,7 @@ const getModelsMetadata = (): BpmnModel[] => {
 };
 
 // Helper to save metadata for all BPMN models
-const setModelsMetadata = (metadata: BpmnModel[]): void => {
+const setModelsMetadata = (metadata: Omit<BpmnModel, 'xml'>[]): void => { // Adjusted to reflect it stores metadata without full XML
   if (typeof window === 'undefined') return;
   try {
     window.localStorage.setItem(BPMN_MODELS_METADATA_KEY, JSON.stringify(metadata));
@@ -57,7 +63,7 @@ class ModelStorageService {
     if (processId) {
       metadata = metadata.filter(m => m.processId === processId);
     }
-    return metadata.map(({ xml, ...rest }) => rest); // Exclude XML from list view
+    return metadata.map(({ ...rest }) => rest); // Exclude XML from list view
   }
 
   // Obter um modelo específico, incluindo seu XML
@@ -65,14 +71,12 @@ class ModelStorageService {
     const metadata = getModelsMetadata().find(m => m.id === id);
     if (!metadata) return null;
 
-    const xml = getModelXml(metadata.processId);
+    const xml = getModelXml(metadata.processId); // processId should be valid here
     if (xml === null) {
-        // This case implies metadata exists but XML is missing, which shouldn't happen with current logic.
-        // Could log an error or handle as a corrupted entry.
         console.error(`XML for model ${id} (process ${metadata.processId}) not found, though metadata exists.`);
-        return { ...metadata, xml: '' }; // Return with empty XML or handle error
+        return { ...metadata, xml: '', createdAt: new Date(metadata.createdAt), updatedAt: new Date(metadata.updatedAt) }; // Ensure dates are Date objects
     }
-    return { ...metadata, xml };
+    return { ...metadata, xml, createdAt: new Date(metadata.createdAt), updatedAt: new Date(metadata.updatedAt) }; // Ensure dates are Date objects
   }
 
   // Obter XML de um modelo especifico dado o ID do processo
@@ -92,27 +96,24 @@ class ModelStorageService {
     // If a process should have only one model, this logic might need adjustment (e.g., update if exists).
     const existingModelForProcess = metadataList.find(m => m.processId === modelData.processId);
     if(existingModelForProcess) {
-        // If a model for this process already exists, update it instead of creating a new one.
-        // This aligns with "wfstudio_bpmn_[processId] → string (XML do modelo BPMN)"
         return this.updateModel(existingModelForProcess.id, modelData);
     }
 
-    const newModel: BpmnModel = {
-      id: generateId(), // Unique ID for the model metadata entry
+    const newModelMetadata: Omit<BpmnModel, 'xml'> = { // Explicitly Omit 'xml'
+      id: generateId(),
       name: modelData.name,
       processId: modelData.processId,
       description: modelData.description || '',
-      version: 1, // Initial version
+      version: 1,
       createdAt: now,
       updatedAt: now,
       tags: modelData.tags || [],
-      xml: '', // XML is not stored in the metadata list by default
     };
 
-    setModelsMetadata([...metadataList, { ...newModel, xml: undefined } ]); // Store metadata without XML
-    setModelXml(newModel.processId, modelData.xml); // Store XML separately
+    setModelsMetadata([...metadataList, newModelMetadata]);
+    setModelXml(newModelMetadata.processId, modelData.xml);
 
-    return { ...newModel, xml: modelData.xml }; // Return full model
+    return { ...newModelMetadata, xml: modelData.xml };
   }
 
   // Atualizar modelo
@@ -126,36 +127,35 @@ class ModelStorageService {
     }
 
     const existingMetadata = metadataList[modelIndex];
-    const updatedMetadata: BpmnModel = {
+    const updatedMetadataBase: Omit<BpmnModel, 'xml'> = {
       ...existingMetadata,
-      ...updates,
+      name: updates.name !== undefined ? updates.name : existingMetadata.name,
+      description: updates.description !== undefined ? updates.description : existingMetadata.description,
+      tags: updates.tags !== undefined ? updates.tags : existingMetadata.tags,
+      processId: updates.processId !== undefined ? updates.processId : existingMetadata.processId,
       updatedAt: new Date(),
       version: (existingMetadata.version || 0) + 1,
-      xml: '', // XML not in metadata list
     };
 
-    // If processId changes, old XML storage needs to be removed.
+    // If processId changes, old XML storage needs to be removed IF it's different.
     if (updates.processId && updates.processId !== existingMetadata.processId) {
-        removeModelXml(existingMetadata.processId);
+        removeModelXml(existingMetadata.processId); // Remove XML from old processId key
     }
 
-    metadataList[modelIndex] = { ...updatedMetadata, xml: undefined }; // Update metadata list
+    metadataList[modelIndex] = updatedMetadataBase;
     setModelsMetadata(metadataList);
 
-    if (updates.xml) { // If XML is being updated
-      setModelXml(updatedMetadata.processId, updates.xml);
-    } else { // If XML is not part of updates, ensure current XML is preserved or fetched
-      const currentXml = getModelXml(updatedMetadata.processId); // XML is stored by processId
-      if (currentXml === null && updates.xml === undefined) {
-        // This implies XML was expected but not found, and not provided in update.
-        // This could happen if processId changed and new processId has no XML yet.
-        // For now, if updates.xml is not provided, the existing XML for updatedMetadata.processId remains.
-      }
+    // Handle XML update: XML is stored by processId.
+    // If XML content is explicitly provided in updates, save it.
+    // The processId used for storing XML should be the new one if it changed.
+    const currentProcessIdForXml = updatedMetadataBase.processId;
+    if (updates.xml !== undefined) {
+      setModelXml(currentProcessIdForXml, updates.xml);
     }
 
-    const finalXml = updates.xml || getModelXml(updatedMetadata.processId) || "";
+    const finalXml = getModelXml(currentProcessIdForXml) || ""; // Fetch the definitive XML for the current processId
 
-    return { ...updatedMetadata, xml: finalXml }; // Return updated model with its XML
+    return { ...updatedMetadataBase, xml: finalXml };
   }
 
   // Deletar modelo
@@ -177,24 +177,37 @@ class ModelStorageService {
   // Delete all models associated with a processId (used by cascade deletes)
   async deleteModelsForProcess(processId: string): Promise<void> {
     let metadataList = getModelsMetadata();
-    const modelsForProcess = metadataList.filter(m => m.processId === processId);
+    const initialCount = metadataList.length;
+    const updatedMetadataList = metadataList.filter(m => m.processId !== processId);
 
-    if (modelsForProcess.length > 0) {
-      const updatedMetadataList = metadataList.filter(m => m.processId !== processId);
+    if (updatedMetadataList.length < initialCount) {
       setModelsMetadata(updatedMetadataList);
-      modelsForProcess.forEach(model => {
-        removeModelXml(model.processId); // XML is stored by processId, so this is somewhat redundant if only one model per process
-      });
     }
-    // For the simple case of one model per process, this is enough:
+    // Always attempt to remove the XML for this processId, as it's keyed by processId.
     removeModelXml(processId);
   }
 
+  // Synchronous method to get models for a specific process, including XML
+  getModelsForProcess(processId: string): BpmnModel[] {
+    if (typeof window === 'undefined') return [];
+    const metadataList = getModelsMetadata();
+    const modelsForProcessMetadata = metadataList.filter(m => m.processId === processId);
+
+    return modelsForProcessMetadata.map(metadata => {
+      const xml = getModelXml(metadata.processId); // processId must be correct
+      return { ...metadata, xml: xml || '', createdAt: new Date(metadata.createdAt), updatedAt: new Date(metadata.updatedAt) };
+    });
+  }
+
+  // Synchronous method to get total count of all models
+  getTotalModelsCount(): number {
+    if (typeof window === 'undefined') return 0;
+    const metadataList = getModelsMetadata();
+    return metadataList.length;
+  }
 
   // Exportar modelo como arquivo - This operates on client-side data
   exportModel(model: BpmnModel, format: 'bpmn' | 'json' = 'bpmn'): void {
-    // This function should now fetch the full model if only metadata is passed
-    // However, typically it will be called with a full BpmnModel object.
     let content: string;
     let mimeType: string;
     let extension: string;
@@ -204,8 +217,7 @@ class ModelStorageService {
       mimeType = 'application/xml';
       extension = 'bpmn';
     } else {
-      // For JSON export, we might want to use the frontend model structure
-      const exportableModel = { ...model }; // Make sure 'xml' is included
+      const exportableModel = { ...model };
       content = JSON.stringify(exportableModel, null, 2);
       mimeType = 'application/json';
       extension = 'json';
@@ -236,8 +248,8 @@ class ModelStorageService {
             const importedData: Partial<BpmnModel> = JSON.parse(content);
             modelToSaveData = {
               name: importedData.name || 'Modelo Importado (JSON)',
-              xml: importedData.xml || '', // XML is crucial
-              processId: processId, // Assign to the given process
+              xml: importedData.xml || '',
+              processId: processId,
               description: importedData.description || '',
               tags: importedData.tags || []
             };
@@ -245,7 +257,7 @@ class ModelStorageService {
             modelToSaveData = {
               name: file.name.replace(/\.(bpmn|xml)$/, ''),
               xml: content,
-              processId: processId, // Assign to the given process
+              processId: processId,
               description: 'Modelo importado de arquivo BPMN/XML',
               tags: ['importado']
             };
@@ -255,23 +267,20 @@ class ModelStorageService {
             throw new Error('Conteúdo XML do modelo não encontrado no arquivo importado.');
           }
 
-          // Since each process is expected to have only one BPMN model string,
-          // we check if a model for this processId already exists.
           const modelsMetadata = getModelsMetadata();
-          const existingModel = modelsMetadata.find(m => m.processId === processId);
+          const existingModelMetadata = modelsMetadata.find(m => m.processId === processId);
 
-          if (existingModel) {
-            // Update existing model
-            const updatedModel = await this.updateModel(existingModel.id, {
+          if (existingModelMetadata) {
+            const updatedModel = await this.updateModel(existingModelMetadata.id, {
               name: modelToSaveData.name,
-              xml: modelToSaveData.xml, // Corrected variable name
+              xml: modelToSaveData.xml,
               description: modelToSaveData.description,
               tags: modelToSaveData.tags,
+              // processId is not changed here as we found the model by it
             });
             if (!updatedModel) throw new Error('Failed to update existing model during import.');
             resolve(updatedModel);
           } else {
-            // Create new model
             const savedModel = await this.saveModel(modelToSaveData);
             resolve(savedModel);
           }
@@ -292,8 +301,3 @@ class ModelStorageService {
 }
 
 export const modelStorage = new ModelStorageService();
-
-// Remove or comment out old Axios related code and default models if no longer needed.
-// For example, the previous API_BASE_URL, backendToFrontendModel, and the old methods
-// like getModels, getModel, saveModel, updateModel, deleteModel that use Axios.
-// Also, getDefaultModels and getDefaultBpmnXml might be removed if not used.

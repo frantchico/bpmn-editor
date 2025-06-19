@@ -2,6 +2,8 @@
 export interface Project {
   id: string;
   name: string;
+  createdAt: string; // ISO date string
+  updatedAt: string; // ISO date string
 }
 
 export interface Area {
@@ -82,3 +84,10 @@ export interface Notification {
   duration?: number
 }
 
+export interface GeneralStatistics {
+  totalProjects: number;
+  totalAreas: number;
+  totalSubAreas: number;
+  totalProcesses: number;
+  totalModels: number;
+}
