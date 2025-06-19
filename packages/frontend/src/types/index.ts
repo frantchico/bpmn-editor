@@ -1,27 +1,41 @@
 // Tipos para modelos BPMN
 export interface Project {
   id: string;
+  code: string; // Added
   name: string;
+  description: string; // Added
+  status: string; // Added
   createdAt: string; // ISO date string
   updatedAt: string; // ISO date string
 }
 
 export interface Area {
   id: string;
+  code: string; // Added
   name: string;
+  description: string; // Added
+  status: string; // Added
   projectId: string;
 }
 
 export interface SubArea {
   id: string;
+  code: string; // Added
   name: string;
+  description: string; // Added
+  status: string; // Added
   areaId: string;
+  projectId: string; // Added, assuming SubArea also needs a projectId for context
 }
 
 export interface Process {
   id: string;
+  code: string; // Added
   name: string;
-  subAreaId: string; // Or areaId if Processes can be directly under Areas
+  description: string; // Added
+  status: string; // Added
+  subAreaId: string; // Changed from areaId
+  model: string; // Added - XML of the BPMN diagram
 }
 
 export interface BpmnModel {

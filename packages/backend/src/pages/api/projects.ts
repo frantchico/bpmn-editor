@@ -3,8 +3,17 @@ import fs from 'fs/promises';
 import path from 'path';
 import runMiddleware from '@/lib/cors'; // Assuming cors middleware from existing setup
 import Cors from 'cors';
-// Define Project type similar to frontend, or import if shared types are set up
-type Project = { id: string; name: string; /* add other fields if any */ };
+
+// Define Project type similar to frontend
+type Project = {
+  id: string;
+  code: string;
+  name: string;
+  description: string;
+  status: string;
+  createdAt: string; // ISO date string
+  updatedAt: string; // ISO date string
+};
 
 const projectsFilePath = path.join(process.cwd(), 'data', 'projects.json');
 
