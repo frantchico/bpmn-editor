@@ -125,6 +125,7 @@ export const SubAreaList: React.FC<SubAreaListProps> = ({ area, project, onNavig
         onSave={handleSaveSubArea}
         subArea={editingSubArea}
         areaId={area.id} // For create context
+        projectId={project.id} // Pass the projectId from the current project context
         errorMessage={formErrorMessage}
       />
     </div>
