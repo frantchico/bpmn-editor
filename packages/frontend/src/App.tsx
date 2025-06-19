@@ -1,6 +1,6 @@
 import './App.css';
 // import { Dashboard } from './pages/Dashboard'; // If Dashboard was the main page
-import { HierarchyManager } from './pages/HierarchyManager'; // Import the new manager
+import GeneralDashboard from './pages/GeneralDashboard'; // Import the new manager
 import Layout from './components/Layout'; // Assuming a Layout component exists
 import { Toaster } from "@/components/ui/sonner"; // Import Toaster
 
@@ -16,7 +16,7 @@ function App() {
           <Route path="/editor/:processId" element={<EditorPage />} /> // Example editor route
         </Routes>
       */}
-      <HierarchyManager />
+      <GeneralDashboard />
       <Toaster richColors position="top-right" /> {/* Add Toaster here */}
     </Layout>
   );

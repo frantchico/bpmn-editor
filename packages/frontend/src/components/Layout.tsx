@@ -1,6 +1,6 @@
 import React, { ReactNode } from 'react'
 import Header from './Header'
-import Sidebar from './Sidebar'
+import SidebarTreeMenu from './SidebarTreeMenu'
 
 interface LayoutProps {
   children: ReactNode
@@ -11,7 +11,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     <div className="min-h-screen bg-gray-50">
       <Header />
       <div className="flex">
-        <Sidebar />
+        <SidebarTreeMenu />
         <main className="flex-1 p-6">
           {children}
         </main>

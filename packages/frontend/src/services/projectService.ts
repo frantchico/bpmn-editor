@@ -1,6 +1,9 @@
-import { Project, Area, SubArea, Process } from '@/types'; // Ensure all are imported if used, though only Project is direct here
+import { Project, Area, SubArea, Process } from '@/types';
 import { generateId } from '@/lib/utils';
-import { modelStorage } from './modelStorage'; // For cascade delete
+import { modelStorage } from './modelStorage';
+import { areaService } from './areaService';
+import { subAreaService } from './subAreaService';
+import { processService } from './processService';
 
 const PROJECTS_KEY = 'wfstudio_projects';
 const AREAS_KEY = 'wfstudio_areas';
@@ -51,6 +54,8 @@ export const projectService = {
     const newProject: Project = {
       id: generateId(),
       name: trimmedName,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
     setStoredItems<Project>(PROJECTS_KEY, [...projects, newProject]);
     return newProject;
@@ -78,7 +83,11 @@ export const projectService = {
       }
     }
 
-    const updatedProject = { ...currentProject, name: newTrimmedName };
+    const updatedProject = {
+      ...currentProject,
+      name: newTrimmedName,
+      updatedAt: new Date().toISOString(),
+    };
     projects[projectIndex] = updatedProject;
     setStoredItems<Project>(PROJECTS_KEY, projects);
     return updatedProject;
@@ -116,5 +125,20 @@ export const projectService = {
         modelStorage.deleteModelsForProcess(proc.id);
     });
     return true;
+  },
+
+  getProjectModelsCount: (projectId: string): number => {
+    let count = 0;
+    const areas = areaService.getAreas(projectId); // Assumes getAreas can filter by projectId
+    for (const area of areas) {
+      const subAreas = subAreaService.getSubAreas(area.id); // Assumes getSubAreas can filter by areaId
+      for (const subArea of subAreas) {
+        const processes = processService.getProcesses(subArea.id); // Assumes getProcesses can filter by subAreaId
+        for (const process of processes) {
+          count += modelStorage.getModelsForProcess(process.id).length;
+        }
+      }
+    }
+    return count;
   },
 };

@@ -1,6 +1,8 @@
-import { Area, SubArea, Process } from '@/types';
+import { Area, SubArea, Process, BpmnModel } from '@/types';
 import { generateId } from '@/lib/utils';
 import { modelStorage } from './modelStorage';
+import { subAreaService } from './subAreaService';
+import { processService } from './processService';
 
 const AREAS_KEY = 'wfstudio_areas';
 const SUBAREAS_KEY = 'wfstudio_subareas';
@@ -108,5 +110,17 @@ export const areaService = {
         modelStorage.deleteModelsForProcess(proc.id);
     });
     return true;
+  },
+
+  getAreaModelsCount: (areaId: string): number => {
+    let count = 0;
+    const subAreas = subAreaService.getSubAreas(areaId); // Assumes getSubAreas filters by areaId
+    for (const subArea of subAreas) {
+      const processes = processService.getProcesses(subArea.id); // Assumes getProcesses filters by subAreaId
+      for (const process of processes) {
+        count += modelStorage.getModelsForProcess(process.id).length;
+      }
+    }
+    return count;
   },
 };
