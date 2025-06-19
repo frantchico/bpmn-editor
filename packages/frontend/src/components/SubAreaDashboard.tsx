@@ -13,7 +13,7 @@ import { Edit3, Trash2, PlusCircle, FileText, AlertTriangle, ArrowLeft, Workflow
 import SubAreaForm from '@/components/SubAreaForm'; // Added import
 import ProcessForm from '@/components/ProcessForm'; // Added import
 import { ProcessList } from '@/components/ProcessList'; // Added import
-import type { Process } from '@/types'; // Ensure Process type is available
+// Removed redundant Process import, it's already imported with SubArea, Area, Project
 
 interface SubAreaDashboardProps {
   subAreaId: string;

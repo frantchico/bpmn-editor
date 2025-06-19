@@ -12,7 +12,7 @@ import { Edit3, Trash2, PlusCircle, FileText, AlertTriangle, ArrowLeft } from 'l
 import AreaForm from '@/components/AreaForm'; // Added import
 import SubAreaForm from '@/components/SubAreaForm'; // Added import
 import { SubAreaList } from '@/components/SubAreaList'; // Added import
-import type { SubArea } from '@/types'; // Ensure SubArea type is available for form save handler
+// Removed redundant SubArea import, it's already imported with Area, Project
 
 interface AreaDashboardProps {
   areaId: string;
