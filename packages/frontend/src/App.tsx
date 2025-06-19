@@ -8,7 +8,7 @@ import GeneralDashboard from './pages/GeneralDashboard';
 import ProjectDashboard from './components/ProjectDashboard';
 import AreaDashboard from './components/AreaDashboard';
 import SubAreaDashboard from './components/SubAreaDashboard';
-import HierarchyManager from './pages/HierarchyManager'; // Added import
+import { HierarchyManager } from './pages/HierarchyManager'; // Changed to named import
 import EditorPage from './pages/Editor'; // Added import
 
 // This component will decide which view to render based on navigation context
