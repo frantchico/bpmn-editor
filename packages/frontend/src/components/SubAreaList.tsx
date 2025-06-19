@@ -119,13 +119,16 @@ export const SubAreaList: React.FC<SubAreaListProps> = ({ area, project, onNavig
           ))}
         </div>
       )}
+      {/* Add console.log for debugging before rendering SubAreaForm in create mode */}
+      {isFormOpen && !editingSubArea && console.log('[SubAreaList] Rendering SubAreaForm for CREATE. areaId:', area.id, 'projectId:', project.id)}
+
       <SubAreaForm
         isOpen={isFormOpen}
         onClose={handleFormClose}
         onSave={handleSaveSubArea}
-        subArea={editingSubArea}
-        areaId={area.id} // For create context
-        projectId={project.id} // Pass the projectId from the current project context
+        subArea={editingSubArea} // null for create mode
+        areaId={area.id}         // Passed for create context
+        projectId={project.id}   // Ensure this is explicitly passed
         errorMessage={formErrorMessage}
       />
     </div>
