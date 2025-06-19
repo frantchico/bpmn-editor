@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Skeleton } from '@/components/ui/skeleton';
 import toast from 'react-hot-toast'; // Changed to react-hot-toast
 import { Edit3, Trash2, PlusCircle, FileText, AlertTriangle, ArrowLeft, Workflow } from 'lucide-react';
-import SubAreaForm from '@/components/SubAreaForm'; // Added import
+import { SubAreaForm } from '@/components/SubAreaForm'; // Changed to named import
 import ProcessForm from '@/components/ProcessForm'; // Added import
 import { ProcessList } from '@/components/ProcessList'; // Added import
 // Removed redundant Process import, it's already imported with SubArea, Area, Project
