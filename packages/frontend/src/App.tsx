@@ -1,6 +1,6 @@
 import './App.css';
 import Layout from './components/Layout';
-import { Toaster } from "@/components/ui/sonner";
+import { Toaster } from 'react-hot-toast'; // Changed to react-hot-toast
 import { NavigationProvider, useNavigation, NavigationView } from './context/NavigationContext'; // Adjusted import for NavigationView
 
 // Import dashboard components
@@ -54,7 +54,8 @@ function App() {
     <NavigationProvider> {/* Provider wraps Layout or part of it that needs context */}
       <Layout> {/* Layout now contains SidebarTreeMenu which will also use this context */}
         <MainContentRouter />
-        <Toaster richColors position="top-right" />
+        {/* Default position is top-center, can be configured: <Toaster position="top-right" /> */}
+        <Toaster />
       </Layout>
     </NavigationProvider>
   );
