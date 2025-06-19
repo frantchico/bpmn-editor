@@ -5,7 +5,7 @@ import { AreaList } from '@/components/AreaList';
 import { SubAreaList } from '@/components/SubAreaList';
 import { ProcessList } from '@/components/ProcessList';
 import { Button } from '@/components/ui/button';
-import { Breadcrumbs } from '@/components/Breadcrumbs';
+import Breadcrumbs from '@/components/Breadcrumbs'; // Changed import style
 import { dataSyncService } from '@/services/dataSyncService';
 import toast from 'react-hot-toast'; // Changed to react-hot-toast
 import { Download, Upload } from 'lucide-react';
