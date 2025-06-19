@@ -3,23 +3,26 @@ import { areaService } from '@/services/areaService';
 import { projectService } from '@/services/projectService';
 import { subAreaService } from '@/services/subAreaService';
 import type { Area, Project, SubArea } from '@/types';
+import { useNavigation } from '@/context/NavigationContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Edit3, Trash2, PlusCircle, FileText, AlertTriangle, Loader2, ArrowLeft } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { toast } from 'sonner';
+import { Edit3, Trash2, PlusCircle, FileText, AlertTriangle, ArrowLeft } from 'lucide-react';
 
 interface AreaDashboardProps {
   areaId: string;
-  // onNavigateBackToProject?: (projectId: string) => void; // Example for navigation
-  // onNavigateToSubArea?: (subAreaId: string) => void;
+  // No onNavigateBackToProject or onNavigateToSubArea needed from props
 }
 
-const AreaDashboard: React.FC<AreaDashboardProps> = ({ areaId /*, onNavigateBackToProject */ }) => {
+const AreaDashboard: React.FC<AreaDashboardProps> = ({ areaId }) => {
   const [area, setArea] = useState<Area | null>(null);
   const [parentProject, setParentProject] = useState<Project | null>(null);
   const [subAreas, setSubAreas] = useState<SubArea[]>([]);
   const [modelsCount, setModelsCount] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { navigateTo } = useNavigation();
 
   const fetchData = useCallback(() => { // Removed async as services are sync
     setIsLoading(true);
@@ -68,24 +71,82 @@ const AreaDashboard: React.FC<AreaDashboardProps> = ({ areaId /*, onNavigateBack
   }, [areaId, fetchData]);
 
   // Action Handlers
-  const handleEditArea = () => console.log(`Edit area: ${areaId}`);
-  const handleDeleteArea = () => console.log(`Delete area: ${areaId}`);
-  const handleCreateSubArea = () => console.log(`Create new sub-area for area: ${areaId}`);
-  const handleViewAreaModels = () => console.log(`View models for area: ${areaId}`);
-  const handleViewSubArea = (subAreaId: string) => console.log(`View sub-area: ${subAreaId}`);
+  const handleEditArea = () => {
+    if (area) {
+      toast.info(`Placeholder: Show form to edit area "${area.name}".`);
+    } else {
+      toast.info('Placeholder: Show form to edit area.');
+    }
+  };
+  const handleDeleteArea = () => {
+    if (area) {
+      toast.success(`Area "${area.name}" would be deleted.`, {
+        description: `ID: ${areaId}`,
+        action: {
+          label: 'Undo',
+          onClick: () => console.log('Undo delete (placeholder)'),
+        },
+      });
+    } else {
+      toast.error('Area details not available to simulate deletion.');
+    }
+    // if (parentProject) navigateTo({ view: 'project', itemId: parentProject.id }); // Example after actual deletion
+  };
+  const handleCreateSubArea = () => {
+    if (area) {
+      toast.info(`Placeholder: Show form to create new sub-area for area "${area.name}".`);
+    } else {
+      toast.info('Placeholder: Show form to create new sub-area.');
+    }
+  };
+  const handleViewAreaModels = () => console.log(`TODO: View models for area: ${areaId}`); // Placeholder
+
+  const handleViewSubArea = (subAreaId: string) => {
+    navigateTo({ view: 'subarea', itemId: subAreaId });
+  };
+
   const handleBackToProject = () => {
-    if (parentProject) {
-      console.log(`Navigate back to project: ${parentProject.id}`);
-      // onNavigateBackToProject?.(parentProject.id);
+    if (parentProject) { // parentProject should be in state and fetched
+      navigateTo({ view: 'project', itemId: parentProject.id });
+    } else {
+      console.warn("Cannot navigate back, parent project not found.");
+      navigateTo({ view: 'general' }); // Fallback to general dashboard
     }
   };
 
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-full p-8">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        <p className="ml-2">Loading area details...</p>
+      <div className="container mx-auto p-4 md:p-6 space-y-6">
+        {/* Skeleton for Back Button */}
+        <Skeleton className="h-9 w-48 mb-4" />
+
+        <Card className="mb-6 shadow-lg">
+          <CardHeader>
+            <Skeleton className="h-8 w-3/4 mb-2" /> {/* Area Name */}
+            <Skeleton className="h-4 w-1/2" /> {/* Parent Project Info */}
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex flex-wrap gap-2 pt-2">
+              <Skeleton className="h-10 w-28" /> {/* Edit Area Button */}
+              <Skeleton className="h-10 w-32" /> {/* Delete Area Button */}
+              <Skeleton className="h-10 w-40" /> {/* Create New Sub-Area Button */}
+              <Skeleton className="h-10 w-40" /> {/* View Models Button */}
+            </div>
+          </CardContent>
+        </Card>
+
+        <section>
+          <Skeleton className="h-7 w-1/3 mb-4" /> {/* Section Title "Sub-Areas..." */}
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {[...Array(3)].map((_, index) => ( // Show 3 skeleton cards for sub-areas
+              <Card key={index}>
+                <CardHeader><Skeleton className="h-6 w-3/4" /></CardHeader>
+                <CardContent><Skeleton className="h-8 w-1/2" /></CardContent>
+              </Card>
+            ))}
+          </div>
+        </section>
       </div>
     );
   }

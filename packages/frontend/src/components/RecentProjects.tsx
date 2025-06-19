@@ -3,6 +3,7 @@ import { projectService } from '@/services/projectService';
 import type { Project } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowRight } from 'lucide-react';
 
 interface RecentProjectsProps {
@@ -30,7 +31,24 @@ const RecentProjects: React.FC<RecentProjectsProps> = ({ onViewProject, onViewAl
     }
   }, []);
 
-  if (loading) return <p className="text-center text-gray-500">Loading recent projects...</p>;
+  if (loading) {
+    return (
+      <div>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {[...Array(3)].map((_, index) => (
+            <Card key={index}>
+              <CardHeader><Skeleton className="h-6 w-3/4" /></CardHeader> {/* For CardTitle */}
+              <CardContent>
+                <Skeleton className="h-10 w-full" /> {/* For Button */}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        {/* You could also add a skeleton for the "View All Projects" button if it's part of the initial layout */}
+        {/* <div className="mt-6 text-center"><Skeleton className="h-10 w-36" /></div> */}
+      </div>
+    );
+  }
   if (recentProjects.length === 0 && !loading) return <p className="text-center text-gray-500">No recent projects to display.</p>;
 
   return (

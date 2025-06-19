@@ -4,17 +4,16 @@ import { areaService } from '@/services/areaService';
 // statisticsService can also provide getProjectModelsCount if we moved it there
 // For now, assuming projectService has getProjectModelsCount as per plan
 import type { Project, Area } from '@/types';
+import { useNavigation } from '@/context/NavigationContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Edit3, Trash2, PlusCircle, FileText, AlertTriangle, Loader2 } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { toast } from 'sonner';
+import { Edit3, Trash2, PlusCircle, FileText, AlertTriangle } from 'lucide-react';
 
 interface ProjectDashboardProps {
   projectId: string;
-  // Props for navigation/callbacks, e.g.:
-  // onNavigateToArea: (areaId: string) => void;
-  // onEditProject: (projectId: string) => void;
-  // onDeleteProject: (projectId: string) => void; // To inform parent to refresh/redirect
-  // onCreateArea: (projectId: string) => void;
+  // No onNavigateToArea needed from props if using context directly
 }
 
 const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ projectId }) => {
@@ -23,6 +22,7 @@ const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ projectId }) => {
   const [modelsCount, setModelsCount] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { navigateTo } = useNavigation();
 
   const fetchData = useCallback(() => { // Removed async as services are sync
     setIsLoading(true);
@@ -65,26 +65,71 @@ const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ projectId }) => {
     }
   }, [projectId, fetchData]);
 
-  // Action Handlers (currently logging)
-  const handleEditProject = () => console.log(`Edit project: ${projectId}`);
-  const handleDeleteProject = () => {
-    console.log(`Delete project: ${projectId}`);
-    // Example of future implementation:
-    // if (window.confirm("Are you sure you want to delete this project and all its contents?")) {
-    //   projectService.deleteProject(projectId);
-    //   onDeleteProject?.(projectId); // Callback to parent
-    // }
+  // Action Handlers
+  const handleEditProject = () => {
+    if (project) {
+      toast.info(`Placeholder: Show form to edit project "${project.name}".`);
+    } else {
+      toast.info('Placeholder: Show form to edit project.');
+    }
   };
-  const handleCreateArea = () => console.log(`Create new area for project: ${projectId}`);
-  const handleViewProjectModels = () => console.log(`View models for project: ${projectId}`);
-  const handleViewArea = (areaId: string) => console.log(`View area: ${areaId}`);
+  const handleDeleteProject = () => {
+    if (project) {
+      toast.success(`Project "${project.name}" would be deleted.`, {
+        description: `ID: ${projectId}`,
+        action: {
+          label: 'Undo',
+          onClick: () => console.log('Undo delete (placeholder)'),
+        },
+      });
+    } else {
+      toast.error('Project details not available to simulate deletion.');
+    }
+    // navigateTo({ view: 'general' }); // Example after actual deletion
+  };
+  const handleCreateArea = () => {
+    if (project) {
+      toast.info(`Placeholder: Show form to create new area for project "${project.name}".`);
+    } else {
+      toast.info('Placeholder: Show form to create new area.');
+    }
+  };
+  const handleViewProjectModels = () => console.log(`TODO: View models for project: ${projectId}`); // Placeholder
+
+  const handleViewArea = (areaId: string) => {
+    navigateTo({ view: 'area', itemId: areaId });
+  };
 
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-full p-8">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        <p className="ml-2">Loading project details...</p>
+      <div className="container mx-auto p-4 md:p-6 space-y-6">
+        <Card className="mb-6 shadow-lg">
+          <CardHeader>
+            <Skeleton className="h-8 w-3/4 mb-2" /> {/* Project Name */}
+            <Skeleton className="h-4 w-1/2" /> {/* Project ID */}
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Skeleton className="h-4 w-full mb-2" /> {/* Timestamps line */}
+            <div className="flex flex-wrap gap-2 pt-2">
+              <Skeleton className="h-10 w-28" /> {/* Edit Project Button */}
+              <Skeleton className="h-10 w-32" /> {/* Delete Project Button */}
+              <Skeleton className="h-10 w-36" /> {/* Create New Area Button */}
+              <Skeleton className="h-10 w-40" /> {/* View Models Button */}
+            </div>
+          </CardContent>
+        </Card>
+        <section>
+          <Skeleton className="h-7 w-1/3 mb-4" /> {/* Section Title "Areas..." */}
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {[...Array(3)].map((_, index) => ( // Show 3 skeleton cards for areas
+              <Card key={index}>
+                <CardHeader><Skeleton className="h-6 w-3/4" /></CardHeader>
+                <CardContent><Skeleton className="h-8 w-1/2" /></CardContent>
+              </Card>
+            ))}
+          </div>
+        </section>
       </div>
     );
   }

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { statisticsService } from '@/services/statisticsService';
 import type { GeneralStatistics } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Briefcase, FolderTree, FileText, Network } from 'lucide-react';
 
 const StatisticsSummary: React.FC = () => {
@@ -19,7 +20,23 @@ const StatisticsSummary: React.FC = () => {
     }
   }, []);
 
-  if (loading) return <p className="text-center text-gray-500">Loading statistics...</p>;
+  if (loading) {
+    return (
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {[...Array(4)].map((_, index) => (
+          <Card key={index}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <Skeleton className="h-4 w-3/4" /> {/* For CardTitle */}
+              <Skeleton className="h-4 w-4" /> {/* For Icon */}
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-8 w-1/2" /> {/* For the main stat number */}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    );
+  }
   if (!stats) return <p className="text-center text-red-500">Could not load statistics.</p>;
 
   return (

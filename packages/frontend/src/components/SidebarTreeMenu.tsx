@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { projectService } from '../../services/projectService';
-import { areaService } from '../../services/areaService';
-import { subAreaService } from '../../services/subAreaService';
-import type { Project, Area, SubArea } from '../../types';
+import { projectService } from '@/services/projectService';
+import { areaService } from '@/services/areaService';
+import { subAreaService } from '@/services/subAreaService';
+import type { Project, Area, SubArea } from '@/types';
+import { useNavigation, ViewType } from '@/context/NavigationContext';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronRight, Folder, FileText, Briefcase } from 'lucide-react';
 
@@ -19,9 +20,27 @@ const SidebarTreeMenu: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [activeNode, setActiveNode] = useState<{ id: string; type: string } | null>(null);
   const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({});
+  const { navigateTo, currentView } = useNavigation(); // Get navigateTo and currentView from context
 
   useEffect(() => {
-    const fetchDataAndBuildTree = () => { // Removed async as localStorage is sync
+    // Sync sidebar's activeNode with the global navigation state
+    if (currentView.itemId &&
+        (currentView.view === 'project' || currentView.view === 'area' || currentView.view === 'subarea')) {
+      // Only update if the globally current item is different from the locally highlighted one
+      if (activeNode?.id !== currentView.itemId || activeNode?.type !== currentView.view) {
+         setActiveNode({ id: currentView.itemId, type: currentView.view as 'project' | 'area' | 'subarea' });
+      }
+    } else if (currentView.view === 'general' && !currentView.itemId) {
+      // If on general dashboard without a specific item context, clear local highlight
+      if (activeNode !== null) {
+          setActiveNode(null);
+      }
+    }
+  }, [currentView, activeNode, setActiveNode]); // setActiveNode added to deps as it's a setter from useState
+
+
+  useEffect(() => {
+    const fetchDataAndBuildTree = () => {
       setIsLoading(true);
       try {
         const projects = projectService.getProjects();
@@ -65,8 +84,21 @@ const SidebarTreeMenu: React.FC = () => {
   }, []);
 
   const handleNodeClick = (node: TreeNode) => {
-    console.log(`Clicked: ${node.type} - ${node.name} (ID: ${node.id})`, node.originalData);
-    setActiveNode({ id: node.id, type: node.type });
+    setActiveNode({ id: node.id, type: node.type }); // Set local active state for sidebar styling
+
+    let viewType: ViewType = 'general'; // Default
+    switch (node.type) {
+      case 'project':
+        viewType = 'project';
+        break;
+      case 'area':
+        viewType = 'area';
+        break;
+      case 'subarea':
+        viewType = 'subarea';
+        break;
+    }
+    navigateTo({ view: viewType, itemId: node.id });
   };
 
   const toggleExpand = (nodeId: string) => {
@@ -87,28 +119,32 @@ const SidebarTreeMenu: React.FC = () => {
           style={{ paddingLeft: `${level * 0.75}rem` }}
         >
           <CollapsibleTrigger asChild>
-            <div
-              className={`flex items-center flex-grow p-1.5 text-sm cursor-pointer
-                           ${activeNode?.id === node.id ? 'font-semibold' : ''}
-                        `}
-              onClick={() => handleNodeClick(node)}
-            >
-              {node.children.length > 0 ? (
+            {/* The onClick for the trigger is handled by onOpenChange on Collapsible for expansion.
+                The clickable div for navigation and styling is nested. */}
+            <div> {/* This div is the child for CollapsibleTrigger */}
+              <div
+                className={`flex items-center flex-grow p-1.5 text-sm cursor-pointer rounded-md
+                             ${activeNode?.id === node.id && activeNode?.type === node.type ? 'font-semibold bg-gray-200 dark:bg-gray-700' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}
+                          `}
+                onClick={() => handleNodeClick(node)} // Navigation and local active state
+              >
+                {node.children.length > 0 ? (
                 <ChevronRight
-                  className={`h-4 w-4 mr-1.5 transform transition-transform duration-200 ${expandedNodes[node.id] ? 'rotate-90' : ''}`}
-                />
-              ) : (
-                <span className="w-[16px] mr-1.5"></span>
-              )}
+                    className={`h-4 w-4 mr-1.5 transform transition-transform duration-200 ${expandedNodes[node.id] ? 'rotate-90' : ''}`}
+                  />
+                ) : (
+                  <span className="w-[16px] mr-1.5"></span>
+                )}
 
-              {node.type === 'project' && <Briefcase className="h-4 w-4 mr-1.5 text-blue-600 dark:text-blue-400" />}
-              {node.type === 'area' && <Folder className="h-4 w-4 mr-1.5 text-yellow-600 dark:text-yellow-400" />}
-              {node.type === 'subarea' && <FileText className="h-4 w-4 mr-1.5 text-green-600 dark:text-green-400" />}
-              <span>{node.name}</span>
+                {node.type === 'project' && <Briefcase className="h-4 w-4 mr-1.5 text-blue-600 dark:text-blue-400" />}
+                {node.type === 'area' && <Folder className="h-4 w-4 mr-1.5 text-yellow-600 dark:text-yellow-400" />}
+                {node.type === 'subarea' && <FileText className="h-4 w-4 mr-1.5 text-green-600 dark:text-green-400" />}
+                <span className="truncate">{node.name}</span>
+              </div>
             </div>
           </CollapsibleTrigger>
         </div>
-        <CollapsibleContent>
+        <CollapsibleContent className="pl-[0.75rem]"> {/* Indent content slightly more for visual hierarchy */}
           {node.children.length > 0 && renderTreeNodes(node.children, level + 1)}
         </CollapsibleContent>
       </Collapsible>

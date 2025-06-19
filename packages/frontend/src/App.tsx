@@ -1,24 +1,62 @@
 import './App.css';
-// import { Dashboard } from './pages/Dashboard'; // If Dashboard was the main page
-import GeneralDashboard from './pages/GeneralDashboard'; // Import the new manager
-import Layout from './components/Layout'; // Assuming a Layout component exists
-import { Toaster } from "@/components/ui/sonner"; // Import Toaster
+import Layout from './components/Layout';
+import { Toaster } from "@/components/ui/sonner";
+import { NavigationProvider, useNavigation, NavigationView } from './context/NavigationContext'; // Adjusted import for NavigationView
+
+// Import dashboard components
+import GeneralDashboard from './pages/GeneralDashboard';
+import ProjectDashboard from './components/ProjectDashboard';
+import AreaDashboard from './components/AreaDashboard';
+import SubAreaDashboard from './components/SubAreaDashboard';
+// Placeholder for EditorPage if you add it to ViewType
+// import EditorPage from './pages/Editor';
+
+// This component will decide which view to render based on navigation context
+const MainContentRouter: React.FC = () => {
+  const { currentView } = useNavigation();
+
+  console.log('MainContentRouter rendering view:', currentView); // Log current view
+
+  switch (currentView.view) {
+    case 'project':
+      // Ensure itemId is not undefined before rendering. Fallback or error if it is.
+      if (!currentView.itemId) {
+        console.error("ProjectDashboard requires an itemId, but it was not provided.", currentView);
+        return <GeneralDashboard />; // Or some error component
+      }
+      return <ProjectDashboard projectId={currentView.itemId} />;
+    case 'area':
+      if (!currentView.itemId) {
+        console.error("AreaDashboard requires an itemId, but it was not provided.", currentView);
+        return <GeneralDashboard />;
+      }
+      return <AreaDashboard areaId={currentView.itemId} />;
+    case 'subarea':
+      if (!currentView.itemId) {
+        console.error("SubAreaDashboard requires an itemId, but it was not provided.", currentView);
+        return <GeneralDashboard />;
+      }
+      return <SubAreaDashboard subAreaId={currentView.itemId} />;
+    // case 'editor':
+    //   if (!currentView.itemId) {
+    //     console.error("EditorPage requires an itemId, but it was not provided.", currentView);
+    //     return <GeneralDashboard />;
+    //   }
+    //   return <EditorPage modelId={currentView.itemId} />; // Example
+    case 'general':
+    default:
+      return <GeneralDashboard />;
+  }
+};
 
 function App() {
   return (
-    <Layout> {/* Assuming Layout provides header, sidebar, main content area */}
-      {/*
-        If using React Router, this would be part of the routing setup.
-        For now, we directly render HierarchyManager.
-        Example:
-        <Routes>
-          <Route path="/" element={<HierarchyManager />} />
-          <Route path="/editor/:processId" element={<EditorPage />} /> // Example editor route
-        </Routes>
-      */}
-      <GeneralDashboard />
-      <Toaster richColors position="top-right" /> {/* Add Toaster here */}
-    </Layout>
+    <NavigationProvider> {/* Provider wraps Layout or part of it that needs context */}
+      <Layout> {/* Layout now contains SidebarTreeMenu which will also use this context */}
+        <MainContentRouter />
+        <Toaster richColors position="top-right" />
+      </Layout>
+    </NavigationProvider>
   );
 }
 

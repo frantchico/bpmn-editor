@@ -4,17 +4,19 @@ import { areaService } from '@/services/areaService';
 import { projectService } from '@/services/projectService';
 import { processService } from '@/services/processService'; // To list processes
 import type { SubArea, Area, Project, Process } from '@/types';
+import { useNavigation } from '@/context/NavigationContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Edit3, Trash2, PlusCircle, FileText, AlertTriangle, Loader2, ArrowLeft, Workflow } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { toast } from 'sonner';
+import { Edit3, Trash2, PlusCircle, FileText, AlertTriangle, ArrowLeft, Workflow } from 'lucide-react';
 
 interface SubAreaDashboardProps {
   subAreaId: string;
-  // onNavigateBackToArea?: (areaId: string) => void;
-  // onNavigateToProcess?: (processId: string) => void; // Or model editor
+  // No onNavigateBackToArea or onNavigateToProcess needed from props
 }
 
-const SubAreaDashboard: React.FC<SubAreaDashboardProps> = ({ subAreaId /*, onNavigateBackToArea */ }) => {
+const SubAreaDashboard: React.FC<SubAreaDashboardProps> = ({ subAreaId }) => {
   const [subArea, setSubArea] = useState<SubArea | null>(null);
   const [parentArea, setParentArea] = useState<Area | null>(null);
   const [parentProject, setParentProject] = useState<Project | null>(null);
@@ -22,6 +24,7 @@ const SubAreaDashboard: React.FC<SubAreaDashboardProps> = ({ subAreaId /*, onNav
   const [modelsCount, setModelsCount] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { navigateTo } = useNavigation();
 
   const fetchData = useCallback(() => { // Removed async as services are sync
     setIsLoading(true);
@@ -71,23 +74,87 @@ const SubAreaDashboard: React.FC<SubAreaDashboardProps> = ({ subAreaId /*, onNav
   }, [subAreaId, fetchData]);
 
   // Action Handlers
-  const handleEditSubArea = () => console.log(`Edit sub-area: ${subAreaId}`);
-  const handleDeleteSubArea = () => console.log(`Delete sub-area: ${subAreaId}`);
-  const handleCreateProcess = () => console.log(`Create new process for sub-area: ${subAreaId}`);
-  const handleViewSubAreaModels = () => console.log(`View models for sub-area: ${subAreaId}`);
-  const handleViewProcess = (processId: string) => console.log(`View process: ${processId}`);
+  const handleEditSubArea = () => {
+    if (subArea) {
+      toast.info(`Placeholder: Show form to edit sub-area "${subArea.name}".`);
+    } else {
+      toast.info('Placeholder: Show form to edit sub-area.');
+    }
+  };
+  const handleDeleteSubArea = () => {
+    if (subArea) {
+      toast.success(`Sub-Area "${subArea.name}" would be deleted.`, {
+        description: `ID: ${subAreaId}`,
+        action: {
+          label: 'Undo',
+          onClick: () => console.log('Undo delete (placeholder)'),
+        },
+      });
+    } else {
+      toast.error('Sub-Area details not available to simulate deletion.');
+    }
+    // if (parentArea) navigateTo({ view: 'area', itemId: parentArea.id }); // Example after actual deletion
+  };
+  const handleCreateProcess = () => {
+    if (subArea) {
+      toast.info(`Placeholder: Show form to create new process for sub-area "${subArea.name}".`);
+    } else {
+      toast.info('Placeholder: Show form to create new process.');
+    }
+  };
+  const handleViewSubAreaModels = () => console.log(`TODO: View models for sub-area: ${subAreaId}`); // Placeholder
+
+  const handleViewProcess = (processId: string) => {
+    console.log(`TODO: Navigate to editor/viewer for process: ${processId}`);
+    // navigateTo({ view: 'editor', itemId: processId }); // Example for future
+  };
+
   const handleBackToArea = () => {
-    if (parentArea) {
-      console.log(`Navigate back to area: ${parentArea.id}`);
-      // onNavigateBackToArea?.(parentArea.id);
+    if (parentArea) { // parentArea should be in state and fetched
+      navigateTo({ view: 'area', itemId: parentArea.id });
+    } else {
+      console.warn("Cannot navigate back, parent area not found.");
+      // Fallback, perhaps to general or try to find project if possible
+      navigateTo({ view: 'general' });
     }
   };
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-full p-8">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        <p className="ml-2">Loading sub-area details...</p>
+      <div className="container mx-auto p-4 md:p-6 space-y-6">
+        {/* Skeleton for Back Button */}
+        <Skeleton className="h-9 w-44 mb-4" /> {/* Adjusted width for "Back to Area (...)" */}
+
+        <Card className="mb-6 shadow-lg">
+          <CardHeader>
+            <Skeleton className="h-8 w-3/4 mb-2" /> {/* Sub-Area Name */}
+            <Skeleton className="h-4 w-full mb-1" /> {/* Path Line 1 */}
+            <Skeleton className="h-4 w-1/2" /> {/* Path Line 2 (ID) */}
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex flex-wrap gap-2 pt-2">
+              <Skeleton className="h-10 w-36" /> {/* Edit Sub-Area Button */}
+              <Skeleton className="h-10 w-40" /> {/* Delete Sub-Area Button */}
+              <Skeleton className="h-10 w-44" /> {/* Create New Process Button */}
+              <Skeleton className="h-10 w-40" /> {/* View Models Button */}
+            </div>
+          </CardContent>
+        </Card>
+
+        <section>
+          <Skeleton className="h-7 w-1/3 mb-4" /> {/* Section Title "Processes..." */}
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {[...Array(3)].map((_, index) => ( // Show 3 skeleton cards for processes
+              <Card key={index}>
+                <CardHeader>
+                  <Skeleton className="h-6 w-3/4 mb-1" /> {/* Process Name */}
+                  <Skeleton className="h-4 w-1/2" /> {/* Process ID */}
+                </CardHeader>
+                <CardContent><Skeleton className="h-8 w-3/4" /></CardContent> {/* Button View Process */}
+              </Card>
+            ))}
+          </div>
+        </section>
       </div>
     );
   }
