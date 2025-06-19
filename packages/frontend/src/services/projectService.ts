@@ -1,29 +1,12 @@
-import { Project, Area, SubArea, Process, BpmnModel } from '@/types';
-// import useLocalStorage from '@/hooks/useLocalStorage'; // Not used directly
-import { generateId } from '@/lib/utils'; // Assuming a utility for ID generation
-import { modelStorage } from './modelStorage';
+import { Project, Area, SubArea, Process } from '@/types'; // Ensure all are imported if used, though only Project is direct here
+import { generateId } from '@/lib/utils';
+import { modelStorage } from './modelStorage'; // For cascade delete
 
 const PROJECTS_KEY = 'wfstudio_projects';
 const AREAS_KEY = 'wfstudio_areas';
 const SUBAREAS_KEY = 'wfstudio_subareas';
 const PROCESSES_KEY = 'wfstudio_processes';
-const BPMN_MODELS_KEY_PREFIX = 'wfstudio_bpmn_'; // For individual model XMLs
-
-// Helper function to get all items of a certain type from localStorage
-// This is a simplified example; actual services might use the hook differently or directly
-// For services, direct usage of localStorage or a more complex state management might be preferred
-// over using the hook directly within service methods if services are classes or plain objects.
-// However, if the services themselves are hooks (e.g., useProjectService), then it's fine.
-
-// For this subtask, we'll assume services are plain objects/classes for now
-// and will interact with localStorage directly or via a wrapper that doesn't rely on React's lifecycle.
-// Re-evaluating the hook's direct use in services:
-// The `useLocalStorage` hook is designed for React components.
-// For services (which are typically plain JS/TS classes or objects),
-// we should create direct localStorage interaction utilities or use the hook's underlying logic.
-
-// Let's create simple localStorage utility functions for services for now.
-// These won't be reactive in the same way as the hook but are suitable for service layers.
+// BPMN_MODELS_KEY_PREFIX is not used directly here anymore due to modelStorage
 
 const getStoredItems = <T>(key: string): T[] => {
   if (typeof window === 'undefined') return [];
@@ -45,11 +28,6 @@ const setStoredItems = <T>(key: string, items: T[]): void => {
   }
 };
 
-const removeStoredItem = (key: string): void => {
-  if (typeof window === 'undefined') return;
-  window.localStorage.removeItem(key);
-}
-
 export const projectService = {
   getProjects: (): Project[] => {
     return getStoredItems<Project>(PROJECTS_KEY);
@@ -61,34 +39,62 @@ export const projectService = {
 
   createProject: (projectData: Pick<Project, 'name'>): Project => {
     const projects = projectService.getProjects();
+    const trimmedName = projectData.name.trim();
+
+    if (!trimmedName) {
+      throw new Error("Project name cannot be empty.");
+    }
+    if (projects.some(p => p.name.toLowerCase() === trimmedName.toLowerCase())) {
+      throw new Error(`A project with the name "${trimmedName}" already exists.`);
+    }
+
     const newProject: Project = {
       id: generateId(),
-      ...projectData,
+      name: trimmedName,
     };
     setStoredItems<Project>(PROJECTS_KEY, [...projects, newProject]);
     return newProject;
   },
 
-  updateProject: (id: string, updates: Partial<Pick<Project, 'name'>>): Project | undefined => {
-    const projects = projectService.getProjects();
-    const index = projects.findIndex(p => p.id === id);
-    if (index === -1) return undefined;
+  updateProject: (id: string, updates: Partial<Pick<Project, 'name'>>): Project => { // Return Project, throw if not found
+    let projects = projectService.getProjects();
+    const projectIndex = projects.findIndex(p => p.id === id);
 
-    const updatedProject = { ...projects[index], ...updates };
-    projects[index] = updatedProject;
+    if (projectIndex === -1) {
+      throw new Error("Project not found for updating. It may have been deleted.");
+    }
+
+    const currentProject = projects[projectIndex];
+    const newTrimmedName = updates.name ? updates.name.trim() : currentProject.name;
+
+    if (updates.name && !newTrimmedName) {
+      throw new Error("Project name cannot be empty.");
+    }
+
+    // Only check for duplicate names if the name is actually changing
+    if (updates.name && newTrimmedName.toLowerCase() !== currentProject.name.toLowerCase()) {
+      if (projects.some(p => p.id !== id && p.name.toLowerCase() === newTrimmedName.toLowerCase())) {
+        throw new Error(`Another project with the name "${newTrimmedName}" already exists.`);
+      }
+    }
+
+    const updatedProject = { ...currentProject, name: newTrimmedName };
+    projects[projectIndex] = updatedProject;
     setStoredItems<Project>(PROJECTS_KEY, projects);
     return updatedProject;
   },
 
   deleteProject: (id: string): boolean => {
-    let projects = projectService.getProjects();
-    const projectToDelete = projects.find(p => p.id === id);
-    if (!projectToDelete) return false;
+    let currentProjects = projectService.getProjects();
+    const projectToDelete = currentProjects.find(p => p.id === id);
+    if (!projectToDelete) {
+        // console.warn(`Project with id ${id} not found for deletion.`);
+        return false; // Indicate not found or already deleted
+    }
 
-    projects = projects.filter(p => p.id !== id);
-    setStoredItems<Project>(PROJECTS_KEY, projects);
+    currentProjects = currentProjects.filter(p => p.id !== id);
+    setStoredItems<Project>(PROJECTS_KEY, currentProjects);
 
-    // Cascade delete: Areas, SubAreas, Processes, BpmnModels
     let areas = getStoredItems<Area>(AREAS_KEY);
     const projectAreas = areas.filter(a => a.projectId === id);
     areas = areas.filter(a => a.projectId !== id);
@@ -106,17 +112,9 @@ export const projectService = {
     processes = processes.filter(p => !subAreaIdsToDelete.includes(p.subAreaId));
     setStoredItems<Process>(PROCESSES_KEY, processes);
 
-    // Delete associated BPMN model XMLs
     projectProcesses.forEach(proc => {
         modelStorage.deleteModelsForProcess(proc.id);
     });
-
-
     return true;
   },
 };
-
-// We also need to create/update `packages/frontend/src/lib/utils.ts` for `generateId`
-// For now, this subtask will focus on the service file.
-// A separate step might be needed for util functions if not already present.
-// Assume `generateId` exists for now.

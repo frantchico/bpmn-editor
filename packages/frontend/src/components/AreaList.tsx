@@ -6,9 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { MoreHorizontal } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface AreaListProps {
-  project: Project; // The parent project
+  project: Project;
   onNavigateToAreaSubAreas: (area: Area) => void;
 }
 
@@ -16,6 +17,7 @@ export const AreaList: React.FC<AreaListProps> = ({ project, onNavigateToAreaSub
   const [areas, setAreas] = useState<Area[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingArea, setEditingArea] = useState<Area | null>(null);
+  const [formErrorMessage, setFormErrorMessage] = useState<string | null>(null);
 
   const loadAreas = () => {
     setAreas(areaService.getAreas(project.id));
@@ -25,35 +27,65 @@ export const AreaList: React.FC<AreaListProps> = ({ project, onNavigateToAreaSub
     loadAreas();
   }, [project.id]);
 
-  const handleSaveArea = (areaData: any) => {
-    if (areaData.id) {
-      areaService.updateArea(areaData.id, { name: areaData.name, projectId: areaData.projectId });
-    } else {
-      areaService.createArea({ name: areaData.name, projectId: project.id });
+  const handleSaveArea = (areaData: Pick<Area, 'name' | 'projectId'> | (Pick<Area, 'name' | 'projectId'> & {id: string})) => {
+    setFormErrorMessage(null);
+    try {
+      let savedArea: Area;
+      if ('id' in areaData) {
+        // Ensure projectId is not lost during update, though not directly editable in this form
+        savedArea = areaService.updateArea(areaData.id, { name: areaData.name });
+        toast.success(`Area "${savedArea.name}" updated successfully.`);
+      } else {
+        savedArea = areaService.createArea({ name: areaData.name, projectId: project.id });
+        toast.success(`Area "${savedArea.name}" created successfully in project "${project.name}".`);
+      }
+      loadAreas();
+      setIsFormOpen(false);
+      setEditingArea(null);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "An unknown error occurred.";
+      toast.error(`Failed to save area: ${message}`);
+      setFormErrorMessage(message);
     }
-    loadAreas();
-    setIsFormOpen(false);
-    setEditingArea(null);
   };
 
   const handleDeleteArea = (id: string) => {
-    if (window.confirm('Are you sure you want to delete this area and all its contents?')) {
-      areaService.deleteArea(id);
-      loadAreas();
+    if (window.confirm('Are you sure you want to delete this area and all its contents? This action cannot be undone.')) {
+      const success = areaService.deleteArea(id);
+      if (success) {
+        toast.success('Area deleted successfully.');
+        loadAreas();
+      } else {
+        toast.error('Failed to delete area. It might have been already removed.');
+      }
+    } else {
+      toast.info('Area deletion cancelled.');
     }
   };
 
-  // const handleNavigateToSubAreas = (areaId: string) => {
-  //   console.log(`Navigate to sub-areas for area ${areaId}`);
-  //   // Example: onNavigateToSubAreas(areaId);
-  // };
+  const openCreateForm = () => {
+    setEditingArea(null);
+    setFormErrorMessage(null);
+    setIsFormOpen(true);
+  };
 
+  const openEditForm = (area: Area) => {
+    setEditingArea(area);
+    setFormErrorMessage(null);
+    setIsFormOpen(true);
+  };
+
+  const handleFormClose = () => {
+    setIsFormOpen(false);
+    setEditingArea(null);
+    setFormErrorMessage(null);
+  };
 
   return (
-    <div className="mt-6"> {/* Adjusted margin for sub-listing */}
+    <div className="mt-6">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-semibold">Areas in {project.name}</h2>
-        <Button onClick={() => { setEditingArea(null); setIsFormOpen(true); }}>Create New Area</Button>
+        <Button onClick={openCreateForm}>Create New Area</Button>
       </div>
 
       {areas.length === 0 ? (
@@ -74,7 +106,7 @@ export const AreaList: React.FC<AreaListProps> = ({ project, onNavigateToAreaSub
                       <Button variant="ghost" size="sm"><MoreHorizontal className="h-4 w-4" /></Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => { setEditingArea(area); setIsFormOpen(true); }}>Edit</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => openEditForm(area)}>Edit</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => handleDeleteArea(area.id)} className="text-red-600">Delete</DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -82,7 +114,7 @@ export const AreaList: React.FC<AreaListProps> = ({ project, onNavigateToAreaSub
               </CardHeader>
               <CardContent>
                 <CardDescription>Contains sub-areas and processes.</CardDescription>
-                     <Button variant="outline" size="sm" className="mt-4" onClick={() => onNavigateToAreaSubAreas(area)}>
+                 <Button variant="outline" size="sm" className="mt-4" onClick={() => onNavigateToAreaSubAreas(area)}>
                    View Sub-Areas
                 </Button>
               </CardContent>
@@ -93,10 +125,11 @@ export const AreaList: React.FC<AreaListProps> = ({ project, onNavigateToAreaSub
 
       <AreaForm
         isOpen={isFormOpen}
-        onClose={() => { setIsFormOpen(false); setEditingArea(null); }}
+        onClose={handleFormClose}
         onSave={handleSaveArea}
         area={editingArea}
-        projectId={project.id}
+        projectId={project.id} // For create context
+        errorMessage={formErrorMessage}
       />
     </div>
   );

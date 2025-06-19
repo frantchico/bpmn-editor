@@ -1,18 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Process, SubArea, BpmnModel } from '@/types';
+import { Process, SubArea, BpmnModel, Area, Project } from '@/types'; // Added Area, Project
 import { processService } from '@/services/processService';
 import { modelStorage } from '@/services/modelStorage';
-import { ProcessForm } from './ProcessForm'; // Create this form
+import { ProcessForm } from './ProcessForm';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { MoreHorizontal, UploadCloud, Edit3, Trash2, Eye } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-// import { useNavigate } from 'react-router-dom'; // For navigation to editor
+import { toast } from 'sonner';
 
 interface ProcessListProps {
-  subArea: SubArea; // Parent SubArea
-  area: Area; // Grandparent Area
-  project: Project; // Great-grandparent project
+  subArea: SubArea;
+  area: Area; // For context
+  project: Project; // For context
   onNavigateToEditor: (processId: string) => void;
 }
 
@@ -23,15 +23,15 @@ export const ProcessList: React.FC<ProcessListProps> = ({ subArea, area, project
   const [processModels, setProcessModels] = useState<Record<string, Omit<BpmnModel, 'xml'> | null>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedProcessForUpload, setSelectedProcessForUpload] = useState<string | null>(null);
-  // const navigate = useNavigate();
+  const [formErrorMessage, setFormErrorMessage] = useState<string | null>(null);
 
   const loadProcessesAndModels = async () => {
     const procs = processService.getProcesses(subArea.id);
     setProcesses(procs);
     const modelsData: Record<string, Omit<BpmnModel, 'xml'> | null> = {};
     for (const proc of procs) {
-      const models = await modelStorage.getModels(proc.id); // Get metadata for models of this process
-      modelsData[proc.id] = models.length > 0 ? models[0] : null; // Assuming one model per process for now
+      const models = await modelStorage.getModels(proc.id);
+      modelsData[proc.id] = models.length > 0 ? models[0] : null;
     }
     setProcessModels(modelsData);
   };
@@ -40,28 +40,40 @@ export const ProcessList: React.FC<ProcessListProps> = ({ subArea, area, project
     loadProcessesAndModels();
   }, [subArea.id]);
 
-  const handleSaveProcess = (processData: any) => {
-    if (processData.id) {
-      processService.updateProcess(processData.id, { name: processData.name, subAreaId: processData.subAreaId });
-    } else {
-      processService.createProcess({ name: processData.name, subAreaId: subArea.id });
+  const handleSaveProcess = (processData: Pick<Process, 'name' | 'subAreaId'> | (Pick<Process, 'name' | 'subAreaId'> & {id: string})) => {
+    setFormErrorMessage(null);
+    try {
+      let savedProcess: Process;
+      if ('id' in processData) {
+        savedProcess = processService.updateProcess(processData.id, { name: processData.name });
+        toast.success(`Process "${savedProcess.name}" updated successfully.`);
+      } else {
+        savedProcess = processService.createProcess({ name: processData.name, subAreaId: subArea.id });
+        toast.success(`Process "${savedProcess.name}" created successfully in sub-area "${subArea.name}".`);
+      }
+      loadProcessesAndModels();
+      setIsFormOpen(false);
+      setEditingProcess(null);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "An unknown error occurred.";
+      toast.error(`Failed to save process: ${message}`);
+      setFormErrorMessage(message);
     }
-    loadProcessesAndModels();
-    setIsFormOpen(false);
-    setEditingProcess(null);
   };
 
   const handleDeleteProcess = (id: string) => {
-    if (window.confirm('Are you sure you want to delete this process and its BPMN model?')) {
-      processService.deleteProcess(id); // This also handles deleting the model via modelStorage
-      loadProcessesAndModels();
+    if (window.confirm('Are you sure you want to delete this process and its BPMN model? This action cannot be undone.')) {
+      const success = processService.deleteProcess(id);
+      if (success) {
+        toast.success('Process and its associated model deleted successfully.');
+        loadProcessesAndModels();
+      } else {
+        toast.error('Failed to delete process. It might have been already removed.');
+      }
+    } else {
+      toast.info('Process deletion cancelled.');
     }
   };
-
-  // const handleNavigateToEditor = (processId: string) => {
-  //    console.log(`Navigate to editor for process ${processId}`);
-  //    // navigate(`/editor/${processId}`);
-  // };
 
   const handleUploadClick = (processId: string) => {
     setSelectedProcessForUpload(processId);
@@ -71,63 +83,92 @@ export const ProcessList: React.FC<ProcessListProps> = ({ subArea, area, project
   const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0] && selectedProcessForUpload) {
       const file = event.target.files[0];
+      const processId = selectedProcessForUpload;
+      setSelectedProcessForUpload(null);
+      if(fileInputRef.current) fileInputRef.current.value = "";
+
       try {
-        await modelStorage.importModel(file, selectedProcessForUpload);
-        loadProcessesAndModels(); // Refresh models
-        alert('Model imported successfully!'); // Replace with better notification
+        await modelStorage.importModel(file, processId);
+        toast.success(`Model "${file.name}" imported successfully for the process!`);
+        loadProcessesAndModels();
       } catch (error) {
-        console.error('Error importing model:', error);
-        alert('Failed to import model. ' + (error instanceof Error ? error.message : ''));
+        const message = error instanceof Error ? error.message : "Unknown error during import.";
+        toast.error(`Failed to import model: ${message}`);
       }
     }
-    setSelectedProcessForUpload(null);
-    if(fileInputRef.current) fileInputRef.current.value = ""; // Reset file input
   };
 
   const handleDeleteModel = async (processId: string) => {
     const modelMeta = processModels[processId];
-    if (modelMeta && window.confirm('Are you sure you want to delete the BPMN model for this process?')) {
-        try {
-            await modelStorage.deleteModel(modelMeta.id); // deleteModel expects metadata ID
-            loadProcessesAndModels(); // Refresh
-            alert('Model deleted successfully.');
-        } catch (error) {
-            console.error('Error deleting model:', error);
-            alert('Failed to delete model.');
+    if (modelMeta && modelMeta.id && window.confirm('Are you sure you want to delete the BPMN model for this process?')) {
+      try {
+        const success = await modelStorage.deleteModel(modelMeta.id);
+        if (success) {
+          toast.success('BPMN model deleted successfully.');
+          loadProcessesAndModels();
+        } else {
+          toast.error('Failed to delete BPMN model. It might have been already removed or an error occurred.');
         }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error during model deletion.";
+        toast.error(`Failed to delete BPMN model: ${message}`);
+      }
+    } else if (!modelMeta || !modelMeta.id) {
+      toast.error('Could not delete model: Model information or ID is missing.');
+    } else {
+      toast.info('BPMN model deletion cancelled.');
     }
   };
 
+  const openCreateForm = () => {
+    setEditingProcess(null);
+    setFormErrorMessage(null);
+    setIsFormOpen(true);
+  };
+
+  const openEditForm = (processToEdit: Process) => {
+    setEditingProcess(processToEdit);
+    setFormErrorMessage(null);
+    setIsFormOpen(true);
+  };
+
+  const handleFormClose = () => {
+    setIsFormOpen(false);
+    setEditingProcess(null);
+    setFormErrorMessage(null);
+  };
 
   return (
     <div className="mt-6">
       <input type="file" ref={fileInputRef} style={{ display: 'none' }} onChange={handleFileImport} accept=".bpmn,.xml,.json" />
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-lg font-semibold">Processes in {subArea.name} <span className="text-sm text-muted-foreground">(Area: {area.name}, Project: {project.name})</span></h3>
-        <Button onClick={() => { setEditingProcess(null); setIsFormOpen(true); }}>Create New Process</Button>
+        <Button onClick={openCreateForm}>Create New Process</Button>
       </div>
-      {processes.length === 0 ? <Card><CardContent className="p-4 text-center text-gray-500">No processes yet.</CardContent></Card> : (
+      {processes.length === 0 ? (
+        <Card><CardContent className="p-4 text-center text-gray-500">No processes yet.</CardContent></Card>
+      ) : (
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-          {processes.map((process) => (
-            <Card key={process.id}>
+          {processes.map((processItem) => (
+            <Card key={processItem.id}>
               <CardHeader>
                 <CardTitle className="flex justify-between items-center text-md">
-                  {process.name}
+                  {processItem.name}
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild><Button variant="ghost" size="xs"><MoreHorizontal className="h-3 w-3" /></Button></DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => { setEditingProcess(process); setIsFormOpen(true); }}>
+                      <DropdownMenuItem onClick={() => openEditForm(processItem)}>
                         <Edit3 className="mr-2 h-4 w-4" /> Edit Process
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleUploadClick(process.id)}>
+                      <DropdownMenuItem onClick={() => handleUploadClick(processItem.id)}>
                          <UploadCloud className="mr-2 h-4 w-4" /> Upload/Replace BPMN
                       </DropdownMenuItem>
-                       {processModels[process.id] && (
-                         <DropdownMenuItem onClick={() => handleDeleteModel(process.id)} className="text-red-500">
+                       {processModels[processItem.id] && (
+                         <DropdownMenuItem onClick={() => handleDeleteModel(processItem.id)} className="text-red-500">
                             <Trash2 className="mr-2 h-4 w-4" /> Delete BPMN Model
                          </DropdownMenuItem>
                        )}
-                      <DropdownMenuItem onClick={() => handleDeleteProcess(process.id)} className="text-red-600">
+                      <DropdownMenuItem onClick={() => handleDeleteProcess(processItem.id)} className="text-red-600">
                         <Trash2 className="mr-2 h-4 w-4" /> Delete Process
                       </DropdownMenuItem>
                     </DropdownMenuContent>
@@ -135,17 +176,17 @@ export const ProcessList: React.FC<ProcessListProps> = ({ subArea, area, project
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {processModels[process.id] ? (
+                {processModels[processItem.id] ? (
                   <>
-                    <CardDescription>Model: {processModels[process.id]?.name}</CardDescription>
-                    <Button variant="default" size="sm" className="mt-2 w-full" onClick={() => handleNavigateToEditor(process.id)}>
+                    <CardDescription>Model: {processModels[processItem.id]?.name}</CardDescription>
+                    <Button variant="default" size="sm" className="mt-2 w-full" onClick={() => onNavigateToEditor(processItem.id)}>
                        <Eye className="mr-2 h-4 w-4" /> View/Edit Model
                     </Button>
                   </>
                 ) : (
                   <>
                     <CardDescription>No BPMN model linked.</CardDescription>
-                    <Button variant="outline" size="sm" className="mt-2 w-full" onClick={() => handleUploadClick(process.id)}>
+                    <Button variant="outline" size="sm" className="mt-2 w-full" onClick={() => handleUploadClick(processItem.id)}>
                       <UploadCloud className="mr-2 h-4 w-4" /> Upload BPMN Model
                     </Button>
                   </>
@@ -155,7 +196,14 @@ export const ProcessList: React.FC<ProcessListProps> = ({ subArea, area, project
           ))}
         </div>
       )}
-      <ProcessForm isOpen={isFormOpen} onClose={() => { setIsFormOpen(false); setEditingProcess(null); }} onSave={handleSaveProcess} process={editingProcess} subAreaId={subArea.id} />
+      <ProcessForm
+        isOpen={isFormOpen}
+        onClose={handleFormClose}
+        onSave={handleSaveProcess}
+        process={editingProcess}
+        subAreaId={subArea.id} // For create context
+        errorMessage={formErrorMessage}
+      />
     </div>
   );
 };

@@ -1,13 +1,13 @@
+// packages/frontend/src/components/ProjectList.tsx
 import React, { useState, useEffect } from 'react';
-import { Project } from '@/types'; // Area might not be needed here directly
+import { Project } from '@/types';
 import { projectService } from '@/services/projectService';
 import { ProjectForm } from './ProjectForm';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { MoreHorizontal } from 'lucide-react';
-// Placeholder for navigation, replace with actual navigation call
-// import { useNavigate } from 'react-router-dom'; // if using react-router
+import { toast } from 'sonner';
 
 interface ProjectListProps {
   onNavigateToProjectAreas: (project: Project) => void;
@@ -17,7 +17,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({ onNavigateToProjectAre
   const [projects, setProjects] = useState<Project[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
-  // const navigate = useNavigate(); // Example for navigation
+  const [formErrorMessage, setFormErrorMessage] = useState<string | null>(null); // New state
 
   const loadProjects = () => {
     setProjects(projectService.getProjects());
@@ -28,39 +28,61 @@ export const ProjectList: React.FC<ProjectListProps> = ({ onNavigateToProjectAre
   }, []);
 
   const handleSaveProject = (projectData: Pick<Project, 'name'> | (Pick<Project, 'name'> & { id: string })) => {
-    if ('id' in projectData) { // Editing existing project
-      projectService.updateProject(projectData.id, { name: projectData.name });
-    } else { // Creating new project
-      projectService.createProject({ name: projectData.name });
+    setFormErrorMessage(null); // Clear previous errors before attempting to save
+    try {
+      let savedProject: Project | undefined;
+      if ('id' in projectData) { // Editing existing project
+        savedProject = projectService.updateProject(projectData.id, { name: projectData.name });
+        // updateProject now throws if not found or validation error
+        toast.success(`Project "${savedProject.name}" updated successfully.`);
+      } else { // Creating new project
+        savedProject = projectService.createProject({ name: projectData.name });
+        toast.success(`Project "${savedProject.name}" created successfully.`);
+      }
+
+      loadProjects(); // Refresh list
+      setIsFormOpen(false); // Close form ONLY on success
+      setEditingProject(null);
+    } catch (error) {
+      console.error("Error saving project:", error);
+      const message = error instanceof Error ? error.message : "An unknown error occurred while saving the project.";
+      toast.error(`Failed to save project: ${message}`);
+      setFormErrorMessage(message); // Set error message to display in the form
+      // Do NOT close the form here, so user can see the error and correct it.
     }
-    loadProjects(); // Refresh list
-    setIsFormOpen(false);
-    setEditingProject(null);
   };
 
   const handleDeleteProject = (id: string) => {
-    if (window.confirm('Are you sure you want to delete this project and all its contents?')) {
-      projectService.deleteProject(id);
-      loadProjects(); // Refresh list
+    if (window.confirm('Are you sure you want to delete this project and all its contents? This action cannot be undone.')) {
+      const success = projectService.deleteProject(id);
+      if (success) {
+        toast.success('Project deleted successfully.');
+        loadProjects();
+      } else {
+        toast.error('Failed to delete project. It might have been already removed.');
+      }
+    } else {
+      toast.info('Project deletion cancelled.');
     }
   };
 
   const openCreateForm = () => {
     setEditingProject(null);
+    setFormErrorMessage(null); // Clear error when opening form
     setIsFormOpen(true);
   };
 
   const openEditForm = (project: Project) => {
     setEditingProject(project);
+    setFormErrorMessage(null); // Clear error when opening form
     setIsFormOpen(true);
   };
 
-  // Placeholder for navigating to project details (areas)
-  // const handleNavigateToProjectAreas = (projectId: string) => { // Old handler
-  //   console.log(`Navigate to areas for project ${projectId}`);
-  //   // navigate(`/projects/${projectId}/areas`); // Example navigation
-  // };
-
+  const handleFormClose = () => {
+    setIsFormOpen(false);
+    setEditingProject(null);
+    setFormErrorMessage(null); // Also clear error on manual close
+  };
 
   return (
     <div className="container mx-auto p-4">
@@ -101,10 +123,9 @@ export const ProjectList: React.FC<ProjectListProps> = ({ onNavigateToProjectAre
               </CardHeader>
               <CardContent>
                 <CardDescription>Contains areas, sub-areas, and process models.</CardDescription>
-                    <Button variant="outline" size="sm" className="mt-4" onClick={() => onNavigateToProjectAreas(project)}>
+                <Button variant="outline" size="sm" className="mt-4" onClick={() => onNavigateToProjectAreas(project)}>
                    View Areas
                 </Button>
-                {/* Later, add more details like number of areas, etc. */}
               </CardContent>
             </Card>
           ))}
@@ -113,9 +134,10 @@ export const ProjectList: React.FC<ProjectListProps> = ({ onNavigateToProjectAre
 
       <ProjectForm
         isOpen={isFormOpen}
-        onClose={() => { setIsFormOpen(false); setEditingProject(null); }}
+        onClose={handleFormClose} // Use the new handler
         onSave={handleSaveProject}
         project={editingProject}
+        errorMessage={formErrorMessage} // Pass the error message
       />
     </div>
   );

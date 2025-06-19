@@ -1,22 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react'; // Added useRef
 import { Project, Area, SubArea, Process } from '@/types';
 import { ProjectList } from '@/components/ProjectList';
 import { AreaList } from '@/components/AreaList';
 import { SubAreaList } from '@/components/SubAreaList';
 import { ProcessList } from '@/components/ProcessList';
 import { Button } from '@/components/ui/button';
-import { Breadcrumbs } from '@/components/Breadcrumbs'; // Import Breadcrumbs
+import { Breadcrumbs } from '@/components/Breadcrumbs';
+import { dataSyncService } from '@/services/dataSyncService';
+import { toast } from 'sonner';
+import { Download, Upload } from 'lucide-react';
 
-// This component will replace the direct usage of ProjectList in App.tsx or Dashboard.tsx later
 export const HierarchyManager: React.FC = () => {
   const [currentView, setCurrentView] = useState<'projects' | 'areas' | 'subareas' | 'processes'>('projects');
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [selectedArea, setSelectedArea] = useState<Area | null>(null);
   const [selectedSubArea, setSelectedSubArea] = useState<SubArea | null>(null);
-
-  // Modify ProjectList, AreaList, SubAreaList to accept navigation functions as props
-  // For now, we'll update them to call these handlers directly.
-  // This is a simplified navigation. A router library would be better.
+  const importFileRef = useRef<HTMLInputElement>(null);
 
   const navigateToProjectAreas = (project: Project) => {
     setSelectedProject(project);
@@ -33,11 +32,8 @@ export const HierarchyManager: React.FC = () => {
     setCurrentView('processes');
   };
 
-  // This would navigate to the BPMN editor, which is a separate page/route
   const navigateToEditor = (processId: string) => {
-    // For now, just log. In a real app, this would change window.location or use a router.
     console.log(`Navigate to editor for process: ${processId}`);
-    // Example: window.location.href = `/editor/${processId}`;
     alert(`Navigation to editor for process ${processId} (actual navigation not implemented in this step).`);
   };
 
@@ -72,19 +68,64 @@ export const HierarchyManager: React.FC = () => {
     }
   };
 
-  // We need to update ProjectList, AreaList, SubAreaList to call these handlers.
-  // This subtask will focus on HierarchyManager and App.tsx.
-  // A follow-up subtask will adjust the List components.
+  const handleExportData = () => {
+    try {
+      dataSyncService.exportAllData();
+      toast.success("Data exported successfully!");
+    } catch (error) {
+      console.error("Export failed:", error);
+      toast.error(`Export failed: ${error instanceof Error ? error.message : "Unknown error"}`);
+    }
+  };
+
+  const handleImportTrigger = () => {
+    importFileRef.current?.click();
+  };
+
+  const handleImportData = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files[0]) {
+      const file = event.target.files[0];
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const content = e.target?.result as string;
+        if (window.confirm("Importing data will overwrite ALL existing local data. This action cannot be undone. Are you sure you want to proceed?")) {
+          const result = dataSyncService.importAllData(content);
+          if (result.success) {
+            toast.success(result.message);
+            window.location.reload();
+          } else {
+            toast.error(result.message);
+          }
+        } else {
+          toast.info("Data import cancelled.");
+        }
+      };
+      reader.readAsText(file);
+      if(importFileRef.current) importFileRef.current.value = ""; // Reset file input
+    }
+  };
 
   return (
     <div className="container mx-auto p-4">
-      <Breadcrumbs
-        project={selectedProject}
-        area={selectedArea}
-        subArea={selectedSubArea}
-        currentView={currentView}
-        onNavigate={handleBreadcrumbNavigation}
-      />
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
+        <Breadcrumbs
+          project={selectedProject}
+          area={selectedArea}
+          subArea={selectedSubArea}
+          currentView={currentView}
+          onNavigate={handleBreadcrumbNavigation}
+        />
+        <div className="flex space-x-2 mt-2 sm:mt-0"> {/* Adjusted for mobile stacking */}
+          <input type="file" ref={importFileRef} onChange={handleImportData} accept=".json" style={{ display: 'none' }} />
+          <Button onClick={handleImportTrigger} variant="outline" size="sm">
+            <Upload className="mr-2 h-4 w-4" /> Import
+          </Button>
+          <Button onClick={handleExportData} variant="outline" size="sm">
+            <Download className="mr-2 h-4 w-4" /> Export
+          </Button>
+        </div>
+      </div>
+
       {currentView !== 'projects' && (
         <Button onClick={goBack} variant="outline" className="mb-4">
           &larr; Back
@@ -92,19 +133,15 @@ export const HierarchyManager: React.FC = () => {
       )}
 
       {currentView === 'projects' && (
-        // ProjectList will need an onNavigateToProjectAreas prop
          <ProjectList onNavigateToProjectAreas={navigateToProjectAreas} />
       )}
       {currentView === 'areas' && selectedProject && (
-        // AreaList will need project and onNavigateToAreaSubAreas props
         <AreaList project={selectedProject} onNavigateToAreaSubAreas={navigateToAreaSubAreas} />
       )}
       {currentView === 'subareas' && selectedArea && selectedProject && (
-        // SubAreaList will need area and onNavigateToSubAreaProcesses props
         <SubAreaList area={selectedArea} onNavigateToSubAreaProcesses={navigateToSubAreaProcesses} project={selectedProject}/>
       )}
       {currentView === 'processes' && selectedSubArea && selectedArea && selectedProject && (
-        // ProcessList will need subArea and onNavigateToEditor props
         <ProcessList subArea={selectedSubArea} onNavigateToEditor={navigateToEditor} area={selectedArea} project={selectedProject} />
       )}
     </div>

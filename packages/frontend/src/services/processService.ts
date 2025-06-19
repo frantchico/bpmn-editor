@@ -1,8 +1,9 @@
 import { Process } from '@/types';
 import { generateId } from '@/lib/utils';
+import { modelStorage } from './modelStorage'; // Correctly imported
 
 const PROCESSES_KEY = 'wfstudio_processes';
-const BPMN_MODELS_KEY_PREFIX = 'wfstudio_bpmn_';
+// BPMN_MODELS_KEY_PREFIX removed as modelStorage handles this
 
 const getStoredItems = <T>(key: string): T[] => {
   if (typeof window === 'undefined') return [];
@@ -24,11 +25,6 @@ const setStoredItems = <T>(key: string, items: T[]): void => {
   }
 };
 
-const removeStoredItem = (key: string): void => {
-  if (typeof window === 'undefined') return;
-  window.localStorage.removeItem(key);
-}
-
 export const processService = {
   getProcesses: (subAreaId?: string): Process[] => {
     const processes = getStoredItems<Process>(PROCESSES_KEY);
@@ -40,37 +36,60 @@ export const processService = {
   },
 
   createProcess: (processData: Pick<Process, 'name' | 'subAreaId'>): Process => {
-    const processes = processService.getProcesses();
-    const newProcess: Process = {
-      id: generateId(),
-      ...processData,
-    };
-    setStoredItems<Process>(PROCESSES_KEY, [...processes, newProcess]);
+    const { name, subAreaId } = processData;
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      throw new Error("Process name cannot be empty.");
+    }
+    const allProcesses = getStoredItems<Process>(PROCESSES_KEY);
+    const parentSubAreaProcesses = allProcesses.filter(p => p.subAreaId === subAreaId);
+    if (parentSubAreaProcesses.some(p => p.name.toLowerCase() === trimmedName.toLowerCase())) {
+      throw new Error(`A process with the name "${trimmedName}" already exists in this sub-area.`);
+    }
+    const newProcess: Process = { id: generateId(), name: trimmedName, subAreaId };
+    setStoredItems<Process>(PROCESSES_KEY, [...allProcesses, newProcess]);
     return newProcess;
   },
 
-  updateProcess: (id: string, updates: Partial<Pick<Process, 'name' | 'subAreaId'>>): Process | undefined => {
-    const processes = processService.getProcesses();
-    const index = processes.findIndex(p => p.id === id);
-    if (index === -1) return undefined;
+  updateProcess: (id: string, updates: Partial<Pick<Process, 'name' /* | 'subAreaId' */>>): Process => {
+    let allProcesses = getStoredItems<Process>(PROCESSES_KEY);
+    const processIndex = allProcesses.findIndex(p => p.id === id);
 
-    const updatedProcess = { ...processes[index], ...updates };
-    processes[index] = updatedProcess;
-    setStoredItems<Process>(PROCESSES_KEY, processes);
+    if (processIndex === -1) {
+      throw new Error("Process not found for updating. It may have been deleted.");
+    }
+
+    const currentProcess = allProcesses[processIndex];
+    let newTrimmedName = currentProcess.name;
+
+    if (updates.name !== undefined) {
+        newTrimmedName = updates.name.trim();
+        if (!newTrimmedName) {
+            throw new Error("Process name cannot be empty.");
+        }
+        if (newTrimmedName.toLowerCase() !== currentProcess.name.toLowerCase()) {
+            const parentSubAreaProcesses = allProcesses.filter(p => p.subAreaId === currentProcess.subAreaId);
+            if (parentSubAreaProcesses.some(p => p.id !== id && p.name.toLowerCase() === newTrimmedName.toLowerCase())) {
+                throw new Error(`Another process with the name "${newTrimmedName}" already exists in this sub-area.`);
+            }
+        }
+    }
+
+    const updatedProcess = { ...currentProcess, name: newTrimmedName };
+    allProcesses[processIndex] = updatedProcess;
+    setStoredItems<Process>(PROCESSES_KEY, allProcesses);
     return updatedProcess;
   },
 
   deleteProcess: (id: string): boolean => {
-    let processes = processService.getProcesses();
+    let processes = getStoredItems<Process>(PROCESSES_KEY);
     const processToDelete = processes.find(p => p.id === id);
     if (!processToDelete) return false;
 
     processes = processes.filter(p => p.id !== id);
     setStoredItems<Process>(PROCESSES_KEY, processes);
 
-    // Cascade delete: BpmnModel XML
-    removeStoredItem(`${BPMN_MODELS_KEY_PREFIX}${id}`);
-
+    modelStorage.deleteModelsForProcess(id); // This handles associated BPMN model data
     return true;
   },
 };

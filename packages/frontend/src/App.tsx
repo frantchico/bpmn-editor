@@ -2,6 +2,7 @@ import './App.css';
 // import { Dashboard } from './pages/Dashboard'; // If Dashboard was the main page
 import { HierarchyManager } from './pages/HierarchyManager'; // Import the new manager
 import Layout from './components/Layout'; // Assuming a Layout component exists
+import { Toaster } from "@/components/ui/sonner"; // Import Toaster
 
 function App() {
   return (
@@ -16,6 +17,7 @@ function App() {
         </Routes>
       */}
       <HierarchyManager />
+      <Toaster richColors position="top-right" /> {/* Add Toaster here */}
     </Layout>
   );
 }
