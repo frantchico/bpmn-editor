@@ -51,10 +51,10 @@ export const subAreaService = {
     const allSubAreas = getStoredItems<SubArea>(SUBAREAS_KEY);
     const parentAreaSubAreas = allSubAreas.filter(sa => sa.areaId === areaId);
 
-    if (parentAreaSubAreas.some(sa => sa.name.toLowerCase() === trimmedName.toLowerCase())) {
+    if (parentAreaSubAreas.some(sa => sa.name && sa.name.toLowerCase() === trimmedName.toLowerCase())) {
       throw new Error(`A sub-area with the name "${trimmedName}" already exists in this area.`);
     }
-    if (parentAreaSubAreas.some(sa => sa.code.toLowerCase() === trimmedCode.toLowerCase())) {
+    if (parentAreaSubAreas.some(sa => sa.code && sa.code.toLowerCase() === trimmedCode.toLowerCase())) {
       throw new Error(`A sub-area with the code "${trimmedCode}" already exists in this area.`);
     }
 
@@ -69,7 +69,8 @@ export const subAreaService = {
     return newSubArea;
   },
 
-  updateSubArea: (id: string, updates: Partial<Omit<SubArea, 'id' | 'areaId' | 'projectId'>>): SubArea => {
+  updateSubArea: (id: string, updates: Partial<Omit<SubArea, 'id' | 'areaId'>>): SubArea => {
+    // Now allows 'projectId' to be part of 'updates'
     let allSubAreas = getStoredItems<SubArea>(SUBAREAS_KEY);
     const subAreaIndex = allSubAreas.findIndex(sa => sa.id === id);
 
@@ -84,15 +85,18 @@ export const subAreaService = {
     if (newName === '') throw new Error("SubArea name cannot be empty.");
     if (newCode === '') throw new Error("SubArea code cannot be empty.");
 
-    if (newName && newName.toLowerCase() !== currentSubArea.name.toLowerCase()) {
+    const currentSubAreaNameLower = (currentSubArea.name || '').toLowerCase();
+    const currentSubAreaCodeLower = (currentSubArea.code || '').toLowerCase();
+
+    if (newName && newName.toLowerCase() !== currentSubAreaNameLower) {
       const parentAreaSubAreas = allSubAreas.filter(sa => sa.areaId === currentSubArea.areaId);
-      if (parentAreaSubAreas.some(sa => sa.id !== id && sa.name.toLowerCase() === newName.toLowerCase())) {
+      if (parentAreaSubAreas.some(sa => sa.id !== id && sa.name && sa.name.toLowerCase() === newName.toLowerCase())) {
         throw new Error(`Another sub-area with the name "${newName}" already exists in this area.`);
       }
     }
-    if (newCode && newCode.toLowerCase() !== currentSubArea.code.toLowerCase()) {
+    if (newCode && newCode.toLowerCase() !== currentSubAreaCodeLower) {
       const parentAreaSubAreas = allSubAreas.filter(sa => sa.areaId === currentSubArea.areaId);
-      if (parentAreaSubAreas.some(sa => sa.id !== id && sa.code.toLowerCase() === newCode.toLowerCase())) {
+      if (parentAreaSubAreas.some(sa => sa.id !== id && sa.code && sa.code.toLowerCase() === newCode.toLowerCase())) {
         throw new Error(`Another sub-area with the code "${newCode}" already exists in this area.`);
       }
     }

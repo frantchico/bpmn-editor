@@ -52,10 +52,10 @@ export const areaService = {
     const allAreas = getStoredItems<Area>(AREAS_KEY);
     const projectAreas = allAreas.filter(a => a.projectId === projectId);
 
-    if (projectAreas.some(a => a.name.toLowerCase() === trimmedName.toLowerCase())) {
+    if (projectAreas.some(a => a.name && a.name.toLowerCase() === trimmedName.toLowerCase())) {
       throw new Error(`An area with the name "${trimmedName}" already exists in this project.`);
     }
-    if (projectAreas.some(a => a.code.toLowerCase() === trimmedCode.toLowerCase())) {
+    if (projectAreas.some(a => a.code && a.code.toLowerCase() === trimmedCode.toLowerCase())) {
       throw new Error(`An area with the code "${trimmedCode}" already exists in this project.`);
     }
 
@@ -85,15 +85,18 @@ export const areaService = {
     if (newName === '') throw new Error("Area name cannot be empty.");
     if (newCode === '') throw new Error("Area code cannot be empty.");
 
-    if (newName && newName.toLowerCase() !== currentArea.name.toLowerCase()) {
+    const currentAreaNameLower = (currentArea.name || '').toLowerCase();
+    const currentAreaCodeLower = (currentArea.code || '').toLowerCase();
+
+    if (newName && newName.toLowerCase() !== currentAreaNameLower) {
       const projectAreas = allAreas.filter(a => a.projectId === currentArea.projectId);
-      if (projectAreas.some(a => a.id !== id && a.name.toLowerCase() === newName.toLowerCase())) {
+      if (projectAreas.some(a => a.id !== id && a.name && a.name.toLowerCase() === newName.toLowerCase())) {
         throw new Error(`Another area with the name "${newName}" already exists in this project.`);
       }
     }
-    if (newCode && newCode.toLowerCase() !== currentArea.code.toLowerCase()) {
+    if (newCode && newCode.toLowerCase() !== currentAreaCodeLower) {
       const projectAreas = allAreas.filter(a => a.projectId === currentArea.projectId);
-      if (projectAreas.some(a => a.id !== id && a.code.toLowerCase() === newCode.toLowerCase())) {
+      if (projectAreas.some(a => a.id !== id && a.code && a.code.toLowerCase() === newCode.toLowerCase())) {
         throw new Error(`Another area with the code "${newCode}" already exists in this project.`);
       }
     }
