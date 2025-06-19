@@ -46,8 +46,10 @@ export const projectService = {
   createProject: (projectData: Omit<Project, 'id' | 'createdAt' | 'updatedAt'>): Project => {
     console.log('[projectService] createProject - projectData:', projectData);
     const projects = projectService.getProjects();
-    const trimmedName = projectData.name.trim();
-    const trimmedCode = projectData.code.trim();
+
+    // Safer trim
+    const trimmedName = (projectData.name || '').trim();
+    const trimmedCode = (projectData.code || '').trim();
 
     if (!trimmedName) throw new Error("Project name cannot be empty.");
     if (!trimmedCode) throw new Error("Project code cannot be empty.");
@@ -60,10 +62,11 @@ export const projectService = {
     }
 
     const newProject: Project = {
-      ...projectData,
       id: generateId(),
-      name: trimmedName, // Ensure name and code are trimmed
+      name: trimmedName,
       code: trimmedCode,
+      description: projectData.description || '', // Provide default if not present
+      status: projectData.status || 'Planned',   // Provide default if not present
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
