@@ -3,6 +3,8 @@ import BpmnModeler from 'bpmn-js/lib/Modeler'
 import 'bpmn-js/dist/assets/diagram-js.css'
 import 'bpmn-js/dist/assets/bpmn-font/css/bpmn-embedded.css'
 import type { BpmnEditorProps, ElementProperties } from '@/types'
+import { modelStorage } from '@/services/modelStorage'
+import toast from 'react-hot-toast';
 
 // Define the handles exposed by useImperativeHandle
 export interface BpmnEditorHandles {
@@ -15,30 +17,47 @@ export interface BpmnEditorHandles {
   // fitViewport: () => void;
 }
 
-// BPMN XML básico para inicializar o editor
-const initialBpmnXml = `<?xml version="1.0" encoding="UTF-8"?>
-<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" id="Definitions_1" targetNamespace="http://bpmn.io/schema/bpmn" exporter="bpmn-js" exporterVersion="18.6.2">
-  <bpmn:process id="Process_1" isExecutable="false">
+const generateInitialBpmnXml = (name: string): string => {
+  // Sanitize 'name' to prevent XML injection if it comes from user input directly
+  // For simplicity here, we assume 'name' is controlled.
+  const safeName = name.replace(/[<>&'"]/g, (c) => {
+    switch (c) {
+      case '<': return '&lt;';
+      case '>': return '&gt;';
+      case '&': return '&amp;';
+      case '\'': return '&apos;';
+      case '"': return '&quot;';
+      default: return c;
+    }
+  });
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" id="Definitions_1" targetNamespace="http://bpmn.io/schema/bpmn">
+  <bpmn:process id="Process_Initial" name="${safeName}" isExecutable="false">
     <bpmn:startEvent id="StartEvent_1" />
   </bpmn:process>
   <bpmndi:BPMNDiagram id="BPMNDiagram_1">
-    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Process_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Process_Initial">
       <bpmndi:BPMNShape id="_BPMNShape_StartEvent_2" bpmnElement="StartEvent_1">
         <dc:Bounds x="173" y="102" width="36" height="36" />
       </bpmndi:BPMNShape>
     </bpmndi:BPMNPlane>
   </bpmndi:BPMNDiagram>
-</bpmn:definitions>`
+</bpmn:definitions>`;
+};
 
 export interface BpmnEditorComponentProps extends BpmnEditorProps {
+  processId: string;
+  processName?: string; // Added processName prop
   onElementSelect?: (element: ElementProperties | null) => void
 }
 
 const BpmnEditor = React.forwardRef<BpmnEditorHandles, BpmnEditorComponentProps>(
   (props, ref) => {
     const {
+      processId,
+      processName, // Destructure processName
       modelId,
-      initialXml = initialBpmnXml,
+      initialXml: propInitialXml,
       onSave,
       onExport,
       onElementSelect
@@ -48,6 +67,7 @@ const BpmnEditor = React.forwardRef<BpmnEditorHandles, BpmnEditorComponentProps>
   const onElementSelectRef = useRef(onElementSelect)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [lastSavedXml, setLastSavedXml] = useState<string | null>(null); // State for last saved XML
 
   // Keep the ref updated if the prop changes
   useEffect(() => {
@@ -57,51 +77,65 @@ const BpmnEditor = React.forwardRef<BpmnEditorHandles, BpmnEditorComponentProps>
   useEffect(() => {
     let mounted = true
 
-    const initializeModeler = async () => {
-      if (!containerRef.current || !mounted) return
+    const initializeModelerWithProcessXml = async () => {
+      if (!containerRef.current || !mounted) return;
+
+      setIsLoading(true);
+      setError(null);
 
       try {
-        setIsLoading(true)
-        setError(null)
+        let xmlToLoad: string;
+        let isInitialXmlGenerated = false; // Flag to track if XML was generated
 
-        // Limpar modeler anterior se existir
+        if (processId) {
+          const loadedXml = await modelStorage.getModelXmlByProcessId(processId);
+          if (loadedXml) {
+            xmlToLoad = loadedXml;
+          } else {
+            // No XML found in storage, generate initial XML using processName
+            xmlToLoad = generateInitialBpmnXml(processName || 'Default Process Name');
+            isInitialXmlGenerated = true;
+          }
+        } else {
+          // No processId provided, use propInitialXml or generate a very basic default
+          xmlToLoad = propInitialXml || generateInitialBpmnXml(processName || 'Default Process Name');
+          isInitialXmlGenerated = true; // Also considered generated if no processId and using default
+        }
+
         if (modelerRef.current) {
           try {
-            modelerRef.current.destroy()
+            modelerRef.current.destroy();
           } catch (err) {
-            console.warn('Erro ao destruir modeler anterior:', err)
+            console.warn('Erro ao destruir modeler anterior:', err);
           }
+          modelerRef.current = null;
         }
 
-        if (!mounted) return
+        if (!mounted || !containerRef.current) return;
 
-        // Check if containerRef.current is null
-        if (!containerRef.current) {
-          console.error('Failed to initialize BPMN editor: Container not found.')
-          if (mounted) {
-            setError('Failed to initialize BPMN editor: Container not found.')
-            setIsLoading(false)
-          }
-          return
-        }
-
-        // Inicializar o modeler BPMN
         const modeler = new BpmnModeler({
-          container: containerRef.current
-        })
-
-        modelerRef.current = modeler
+          container: containerRef.current,
+        });
+        modelerRef.current = modeler;
 
         requestAnimationFrame(async () => {
-          if (!mounted || !modelerRef.current) return // Add modelerRef.current check for safety
+          if (!mounted || !modelerRef.current) {
+            if (modelerRef.current) {
+                try { modelerRef.current.destroy(); } catch(e) { console.warn("Error destroying modeler in RAF cleanup", e)}
+            }
+            return;
+          }
 
-          const modelerInstance = modelerRef.current; // Use a local var for type safety if needed
+          const modelerInstance = modelerRef.current;
 
           try {
-            // Carregar o XML inicial
-            await modelerInstance.importXML(initialXml)
+            await modelerInstance.importXML(xmlToLoad);
+            if (!mounted) return;
+            setLastSavedXml(xmlToLoad); // Set lastSavedXml after successful import
 
-            if (!mounted) return
+            if (isInitialXmlGenerated && mounted) {
+              toast.info(`Loaded initial diagram for '${processName || 'Default Process Name'}'.`, { duration: 3000 });
+            }
 
             // Configurar eventos
             const eventBus = modelerInstance.get('eventBus')
@@ -113,7 +147,7 @@ const BpmnEditor = React.forwardRef<BpmnEditorHandles, BpmnEditorComponentProps>
               const { newSelection } = event
               if (newSelection.length > 0) {
                 const element = newSelection[0]
-                console.log('Selected element type:', element.type, 'ID:', element.id); // Added logging
+                // console.log('Selected element type:', element.type, 'ID:', element.id);
                 const businessObject = element.businessObject
 
                 const elementName = businessObject.name || '(No name)';
@@ -136,53 +170,120 @@ const BpmnEditor = React.forwardRef<BpmnEditorHandles, BpmnEditorComponentProps>
             canvas.zoom('fit-viewport')
 
             if (mounted) {
-              setIsLoading(false)
+              setIsLoading(false);
             }
-          } catch (err) {
-            console.error('Erro ao carregar diagrama BPMN:', err)
+          } catch (err: any) {
+            console.error('Erro ao carregar diagrama BPMN:', err);
             if (mounted) {
-              setError(`Erro ao carregar o diagrama BPMN: ${err.message || err}`)
-              setIsLoading(false)
+              setError(`Erro ao carregar o diagrama BPMN: ${err.message || String(err)}`);
+              setIsLoading(false);
             }
           }
-        })
-      } catch (err) {
-        // This catch block is now for errors during modeler instantiation or pre-RAF setup
-        console.error('Erro ao inicializar o modeler BPMN:', err)
+        });
+      } catch (err: any) {
+        console.error('Erro ao inicializar o modeler BPMN:', err);
         if (mounted) {
-          setError(`Erro ao inicializar o modeler BPMN: ${err.message || err}`)
-          setIsLoading(false)
+          setError(`Erro ao inicializar o modeler BPMN: ${err.message || String(err)}`);
+          setIsLoading(false);
         }
       }
-    }
+    };
 
-    initializeModeler()
+    initializeModelerWithProcessXml();
 
-    // Cleanup
     return () => {
-      mounted = false
-      if (modelerRef.current) {
-        try {
-          modelerRef.current.destroy()
-        } catch (err) {
-          console.warn('Erro ao destruir modeler:', err)
+      mounted = false;
+      requestAnimationFrame(() => {
+        if (modelerRef.current) {
+            try {
+                modelerRef.current.destroy();
+            } catch (err) {
+                console.warn('Erro ao destruir modeler na limpeza:', err);
+            }
+            modelerRef.current = null;
         }
-        modelerRef.current = null
-      }
-    }
-  }, [initialXml]) // onElementSelect is removed from dependencies
+      });
+    };
+  }, [processId, propInitialXml]);
+
 
   const handleSave = async () => {
-    if (!modelerRef.current) return
+    if (!modelerRef.current) {
+      console.error('BpmnEditor: Modeler not available for saving.');
+      setError('Não é possível salvar: Editor não inicializado.');
+      return;
+    }
+    if (!processId) {
+      console.error('BpmnEditor: processId not provided for saving.');
+      const errMessage = 'Cannot save: Process ID is missing.';
+      setError(errMessage);
+      toast.error(errMessage);
+      return;
+    }
 
     try {
-      const { xml } = await modelerRef.current.saveXML({ format: true })
-      onSave?.(xml)
-    } catch (err) {
-      console.error('Erro ao salvar:', err)
-      setError('Erro ao salvar o diagrama')
+      const { xml: currentXml } = await modelerRef.current.saveXML({ format: true });
+
+      // --- BPMN XML Validation Step ---
+      let tempModeler: BpmnModeler | null = null;
+      try {
+        // Create a dummy div for the temporary modeler
+        const dummyContainer = document.createElement('div');
+        tempModeler = new BpmnModeler({ container: dummyContainer });
+        await tempModeler.importXML(currentXml);
+        // If importXML succeeds, XML is valid.
+      } catch (validationError: any) {
+        console.error("BPMN XML Validation Error:", validationError);
+        toast.error(`Invalid BPMN XML. Please correct errors. ${validationError.message || ''}`, { duration: 5000 });
+        if (tempModeler) {
+          tempModeler.destroy();
+        }
+        return; // Do not proceed with saving
+      } finally {
+        if (tempModeler) {
+          tempModeler.destroy();
+        }
+      }
+      // --- End of BPMN XML Validation Step ---
+
+      if (currentXml === lastSavedXml) {
+        toast('No changes to save.', { icon: '🤷' });
+        return;
+      }
+
+      const savedModel = await modelStorage.saveModel({
+        processId,
+        xml: currentXml, // Use currentXml here
+        name: `Model for ${processId}`,
+        description: `Saved at ${new Date().toISOString()}`,
+        tags: [], // Default tags or allow configuration
+      });
+
+      if (savedModel) {
+        setLastSavedXml(currentXml); // Update lastSavedXml after successful save
+        const versions = await modelStorage.listVersions(processId);
+        let message = `Model for ${processId} saved.`;
+        if (versions.length > 0) {
+          const latestVersion = versions.reduce((prev, current) => (prev.version > current.version) ? prev : current);
+          message = `Model for ${processId} updated successfully (v${latestVersion.version})`;
+        } else {
+           // Fallback if versions array is empty, though saveModel should ensure a version.
+          message = `Model for ${processId} saved successfully (v${savedModel.version})`;
+        }
+        toast.success(message);
+      } else {
+        // This case might not be reachable if saveModel always returns a model or throws.
+        toast.error(`Failed to save model for ${processId}.`);
+      }
+
+      onSave?.(currentXml); // Pass currentXml to onSave callback
+    } catch (err: any) {
+      console.error('Erro ao salvar o modelo BPMN:', err);
+      const errMessage = `Error saving diagram: ${err.message || String(err)}`;
+      setError(errMessage);
+      toast.error(errMessage);
     }
-  }
+  };
 
   const handleExport = async (format: 'bpmn' | 'svg' | 'png') => {
     if (!modelerRef.current) return

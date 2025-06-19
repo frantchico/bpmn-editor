@@ -28,6 +28,7 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({ project, isOpen, onClo
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('[ProjectForm] handleSubmit - name:', name, 'existing project:', project);
     // Client-side pre-emptive check for empty name (optional, as service validates too)
     if (!name.trim()) {
         // The `required` attribute on Input provides browser feedback.

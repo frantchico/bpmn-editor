@@ -8,8 +8,11 @@ import { useNavigation } from '@/context/NavigationContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { toast } from 'sonner';
+import toast from 'react-hot-toast';
 import { Edit3, Trash2, PlusCircle, FileText, AlertTriangle } from 'lucide-react';
+import { ProjectForm } from '@/components/ProjectForm'; // Changed to named import
+import { AreaForm } from '@/components/AreaForm'; // Changed to named import
+import { AreaList } from '@/components/AreaList'; // Added import
 
 interface ProjectDashboardProps {
   projectId: string;
@@ -24,7 +27,12 @@ const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ projectId }) => {
   const [error, setError] = useState<string | null>(null);
   const { navigateTo } = useNavigation();
 
-  const fetchData = useCallback(() => { // Removed async as services are sync
+  // State for modal visibility
+  const [isProjectFormOpen, setIsProjectFormOpen] = useState(false);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [isAreaFormOpen, setIsAreaFormOpen] = useState(false);
+
+  const fetchData = useCallback(() => {
     setIsLoading(true);
     setError(null);
     try {
@@ -66,39 +74,97 @@ const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ projectId }) => {
   }, [projectId, fetchData]);
 
   // Action Handlers
-  const handleEditProject = () => {
-    if (project) {
-      toast.info(`Placeholder: Show form to edit project "${project.name}".`);
-    } else {
-      toast.info('Placeholder: Show form to edit project.');
+  const handleEditProject = () => { // No longer async, just opens form
+    if (!project) {
+      toast.error("Project data not loaded.");
+      return;
+    }
+    setEditingProject(project);
+    setIsProjectFormOpen(true);
+  };
+
+  const handleProjectFormSave = async (projectData: Pick<Project, 'name'>) => {
+    if (!editingProject) {
+      toast.error("No project selected for editing."); // Should not happen if form is opened correctly
+      return false;
+    }
+    try {
+      await projectService.updateProject(editingProject.id, { name: projectData.name });
+      toast.success(`Project "${projectData.name}" updated successfully.`);
+      fetchData(); // Refresh project data
+      setIsProjectFormOpen(false);
+      setEditingProject(null);
+      return true;
+    } catch (e: any) {
+      console.error("Error updating project:", e);
+      toast.error(`Failed to update project: ${e.message || String(e)}`);
+      return false; // Indicate save failure
     }
   };
-  const handleDeleteProject = () => {
-    if (project) {
-      toast.success(`Project "${project.name}" would be deleted.`, {
-        description: `ID: ${projectId}`,
-        action: {
-          label: 'Undo',
-          onClick: () => console.log('Undo delete (placeholder)'),
-        },
+
+  const handleDeleteProject = async () => {
+    if (!project) {
+      toast.error("Project data not loaded.");
+      return;
+    }
+    if (window.confirm(`Are you sure you want to delete project "${project.name}" and all its contents?`)) {
+      try {
+        // Assuming projectService.deleteProject returns a boolean or throws an error.
+        const success = await projectService.deleteProject(project.id); // Adapting to async
+        if (success) {
+          toast.success(`Project "${project.name}" deleted successfully.`);
+          navigateTo({ view: 'general' }); // Or 'hierarchy'
+        } else {
+          // This else block might not be reached if deleteProject throws on failure.
+          toast.error("Failed to delete project. It might have been already removed or an error occurred.");
+        }
+      } catch (e: any) {
+        console.error("Error deleting project:", e);
+        toast.error(`Failed to delete project: ${e.message || String(e)}`);
+      }
+    }
+  };
+
+  const handleCreateArea = () => { // No longer async, just opens form
+    if (!project) { // Ensure project context exists
+      toast.error("Project data not loaded. Cannot create area.");
+      return;
+    }
+    setIsAreaFormOpen(true);
+  };
+
+  const handleAreaFormSave = async (areaData: Pick<Area, 'name' | 'description'>) => {
+    if (!project) {
+      toast.error("Project context is missing for creating an area.");
+      return false;
+    }
+    console.log('[ProjectDashboard] handleAreaFormSave - Creating area with name:', areaData.name, 'under projectId:', project.id);
+    try {
+      // Ensure areaData from form is correctly structured.
+      // AreaForm (when creating) should provide 'name' and 'description'.
+      // 'projectId' is added here from the ProjectDashboard's context.
+      await areaService.createArea({
+        name: areaData.name,
+        description: areaData.description || '', // Ensure description is at least an empty string
+        projectId: project.id
       });
-    } else {
-      toast.error('Project details not available to simulate deletion.');
-    }
-    // navigateTo({ view: 'general' }); // Example after actual deletion
-  };
-  const handleCreateArea = () => {
-    if (project) {
-      toast.info(`Placeholder: Show form to create new area for project "${project.name}".`);
-    } else {
-      toast.info('Placeholder: Show form to create new area.');
+      toast.success(`Area "${areaData.name}" created successfully.`);
+      fetchData(); // Refresh areas list
+      setIsAreaFormOpen(false);
+      return true;
+    } catch (e: any) {
+      console.error("Error creating area:", e);
+      toast.error(`Failed to create area: ${e.message || String(e)}`);
+      return false; // Indicate save failure
     }
   };
+
   const handleViewProjectModels = () => console.log(`TODO: View models for project: ${projectId}`); // Placeholder
 
-  const handleViewArea = (areaId: string) => {
-    navigateTo({ view: 'area', itemId: areaId });
-  };
+  // handleViewArea is now managed by AreaList's onNavigateToAreaSubAreas prop effectively
+  // const handleViewArea = (areaId: string) => {
+  //   navigateTo({ view: 'area', itemId: areaId });
+  // };
 
 
   if (isLoading) {
@@ -170,38 +236,52 @@ const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ projectId }) => {
           <div className="flex flex-wrap gap-2 pt-2">
             <Button variant="outline" onClick={handleEditProject}><Edit3 className="mr-2 h-4 w-4"/> Edit Project</Button>
             <Button variant="destructive" onClick={handleDeleteProject}><Trash2 className="mr-2 h-4 w-4"/> Delete Project</Button>
-            <Button onClick={handleCreateArea}><PlusCircle className="mr-2 h-4 w-4"/> Create New Area</Button>
+            {/* Removed general "Create New Area" button from here */}
             <Button variant="secondary" onClick={handleViewProjectModels}><FileText className="mr-2 h-4 w-4"/> View Models ({modelsCount})</Button>
           </div>
         </CardContent>
       </Card>
 
       <section>
-        <h2 className="text-2xl font-semibold mb-4">Areas in this Project ({areas.length})</h2>
-        {areas.length > 0 ? (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {areas.map(area => (
-              <Card key={area.id} className="hover:shadow-md transition-shadow duration-150 ease-in-out">
-                <CardHeader>
-                  <CardTitle className="text-xl">{area.name}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {/* <p className="text-sm text-muted-foreground mb-3">Contains X sub-areas, Y models</p> */}
-                  <Button variant="outline" size="sm" onClick={() => handleViewArea(area.id)}>
-                    View Area Details
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        ) : (
-          <Card className="flex flex-col items-center justify-center p-6 border-dashed">
-             <p className="text-muted-foreground mb-3">No areas have been created for this project yet.</p>
-             <Button onClick={handleCreateArea}><PlusCircle className="mr-2 h-4 w-4"/> Create First Area</Button>
-          </Card>
+        <h2 className="text-2xl font-semibold mb-4">Areas in this Project</h2>
+        {project && ( // Ensure project is loaded before rendering AreaList or create button
+          areas.length > 0 ? (
+            <AreaList
+              project={project}
+              areas={areas} // Pass fetched areas to AreaList
+              onNavigateToAreaSubAreas={(area) => navigateTo({ view: 'area', itemId: area.id })}
+              // Assuming AreaList doesn't directly modify areas that ProjectDashboard needs to be aware of
+              // without a page reload or further prop for callback. fetchData reloads areas for now.
+            />
+          ) : (
+            <Card className="flex flex-col items-center justify-center p-6 border-dashed">
+               <p className="text-muted-foreground mb-3">No areas have been created for this project yet.</p>
+               <Button onClick={handleCreateArea}><PlusCircle className="mr-2 h-4 w-4"/> Create First Area</Button>
+            </Card>
+          )
         )}
       </section>
-      {/* Future sections for project-level models or other details can be added here */}
+
+      {/* Forms Modals */}
+      {project && editingProject && ( // Ensure editingProject is not null for edit mode
+        <ProjectForm
+          isOpen={isProjectFormOpen}
+          onClose={() => { setIsProjectFormOpen(false); setEditingProject(null); }}
+          onSave={handleProjectFormSave}
+          project={editingProject}
+        />
+      )}
+      {project && !editingProject && ( // Ensure project context exists AND we are not editing an area (which would use a different form instance or logic)
+        <AreaForm
+          isOpen={isAreaFormOpen}
+          onClose={() => setIsAreaFormOpen(false)}
+          onSave={handleAreaFormSave}
+          area={null} // Explicitly null for creation mode
+          projectId={project.id} // Pass projectId for creation context
+          // Pass project name for display purposes in AreaForm if needed, e.g., parentProjectName={project.name}
+          // errorMessage={...} // If AreaForm has its own error message state to be displayed from here
+        />
+      )}
     </div>
   );
 };

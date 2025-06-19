@@ -13,9 +13,10 @@ const PROCESSES_KEY = 'wfstudio_processes';
 
 const getStoredItems = <T>(key: string): T[] => {
   if (typeof window === 'undefined') return [];
-  const item = window.localStorage.getItem(key);
+  const rawItem = window.localStorage.getItem(key);
+  console.log('[projectService] getStoredItems - key:', key, 'raw item:', rawItem);
   try {
-    return item ? JSON.parse(item) : [];
+    return rawItem ? JSON.parse(rawItem) : [];
   } catch (e) {
     console.error(`Error parsing localStorage key ${key}:`, e);
     return [];
@@ -23,9 +24,11 @@ const getStoredItems = <T>(key: string): T[] => {
 };
 
 const setStoredItems = <T>(key: string, items: T[]): void => {
+  console.log('[projectService] setStoredItems - key:', key, 'items being set:', items);
   if (typeof window === 'undefined') return;
   try {
     window.localStorage.setItem(key, JSON.stringify(items));
+    console.log('[projectService] Successfully called setStoredItems for key:', key);
   } catch (e) {
     console.error(`Error setting localStorage key ${key}:`, e);
   }
@@ -41,6 +44,7 @@ export const projectService = {
   },
 
   createProject: (projectData: Pick<Project, 'name'>): Project => {
+    console.log('[projectService] createProject - projectData:', projectData);
     const projects = projectService.getProjects();
     const trimmedName = projectData.name.trim();
 
@@ -57,7 +61,10 @@ export const projectService = {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
+    console.log('[projectService] Saving projects to localStorage. New project:', newProject, 'All projects:', [...projects, newProject]);
     setStoredItems<Project>(PROJECTS_KEY, [...projects, newProject]);
+    // Note: The log for "Successfully called setStoredItems" is now inside setStoredItems itself.
+    console.log('[projectService] Returning new project:', newProject);
     return newProject;
   },
 

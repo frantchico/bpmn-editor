@@ -6,6 +6,8 @@ import type { Project } from '@/types';
 import { useNavigation } from '@/context/NavigationContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { ProjectForm } from '@/components/ProjectForm'; // Added import
+import toast from 'react-hot-toast'; // Added import
 import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowRight } from 'lucide-react';
 
@@ -18,19 +20,61 @@ const GeneralDashboard: React.FC<Record<string, never>> = (/*{ setActiveView }*/
   const [loadingProjects, setLoadingProjects] = useState(true);
   const { navigateTo } = useNavigation();
 
+  // State for ProjectForm modal
+  const [isProjectFormOpen, setIsProjectFormOpen] = useState(false);
+  const [projectFormError, setProjectFormError] = useState<string | null>(null);
+
   useEffect(() => {
+    const loadData = () => {
+      setLoadingProjects(true);
+      try {
+        const projects = projectService.getProjects();
+        const sortedProjects = [...projects].sort((a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+        setAllProjects(sortedProjects);
+      } catch (error) {
+        console.error("Error fetching all projects:", error);
+        // Potentially set an error state here to display to the user
+      } finally {
+        setLoadingProjects(false);
+      }
+    };
+
+    loadData();
+  }, []); // Empty dependency array to run once on mount
+
+  const openCreateProjectForm = () => {
+    setProjectFormError(null);
+    setIsProjectFormOpen(true);
+  };
+
+  const handleCreateProjectSave = async (projectData: Pick<Project, 'name'>) => {
+    setProjectFormError(null);
     try {
-      const projects = projectService.getProjects();
-       const sortedProjects = [...projects].sort((a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      const newProject = await projectService.createProject({ name: projectData.name });
+      toast.success(`Project "${newProject.name}" created successfully!`);
+      setIsProjectFormOpen(false);
+      // Optimistically update the local state
+      setAllProjects(prevProjects =>
+        [newProject, ...prevProjects].sort((a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        )
       );
-      setAllProjects(sortedProjects);
-    } catch (error) {
-      console.error("Error fetching all projects:", error);
-    } finally {
-      setLoadingProjects(false);
+      return true; // Indicate success to form
+    } catch (error: any) {
+      console.error("Error creating project:", error);
+      const message = error.message || "An unknown error occurred.";
+      toast.error(`Failed to create project: ${message}`);
+      setProjectFormError(message);
+      return false; // Indicate failure to form
     }
-  }, []);
+  };
+
+  const handleProjectFormClose = () => {
+    setIsProjectFormOpen(false);
+    setProjectFormError(null);
+  };
 
   const handleViewProject = (projectId: string) => {
     navigateTo({ view: 'project', itemId: projectId });
@@ -48,10 +92,13 @@ const GeneralDashboard: React.FC<Record<string, never>> = (/*{ setActiveView }*/
       </section>
 
       <section id="all-projects-section">
-        <h2 className="text-2xl font-semibold mb-4">All Projects</h2>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-2xl font-semibold">All Projects</h2>
+          <Button onClick={openCreateProjectForm}>Create New Project</Button>
+        </div>
         {loadingProjects ? (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {[...Array(8)].map((_, index) => ( // Show a few skeleton cards, e.g., 8
+            {[...Array(8)].map((_, index) => (
               <Card key={index}>
                 <CardHeader><Skeleton className="h-6 w-3/4" /></CardHeader> {/* CardTitle */}
                 <CardContent className="space-y-2">
@@ -62,7 +109,7 @@ const GeneralDashboard: React.FC<Record<string, never>> = (/*{ setActiveView }*/
             ))}
           </div>
         ) : allProjects.length === 0 ? (
-          <p className="text-center text-gray-500">No projects available. Create one to get started!</p>
+          <p className="text-center text-gray-500 py-8">No projects available. Click "Create New Project" to get started!</p>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {allProjects.map(project => (
@@ -86,6 +133,14 @@ const GeneralDashboard: React.FC<Record<string, never>> = (/*{ setActiveView }*/
         <h2 className="text-2xl font-semibold mb-4">Statistics</h2>
         <StatisticsSummary />
       </section>
+
+      <ProjectForm
+        isOpen={isProjectFormOpen}
+        onClose={handleProjectFormClose}
+        onSave={handleCreateProjectSave}
+        project={null} // Explicitly null for creation mode
+        errorMessage={projectFormError}
+      />
     </div>
   );
 };

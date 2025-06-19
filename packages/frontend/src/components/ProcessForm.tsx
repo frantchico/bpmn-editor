@@ -26,16 +26,20 @@ export const ProcessForm: React.FC<ProcessFormProps> = ({ process, subAreaId, is
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('[ProcessForm] handleSubmit - Props: process=', process, 'subAreaId=', subAreaId, 'Current form name:', name);
     if (!name.trim()) {
       // alert('Process name is required.'); // To be replaced
+      // Consider setting a local error message if form needs to display it directly
       return;
     }
-    if (process) {
+    if (process) { // Editing existing process
       onSave({ id: process.id, name, subAreaId: process.subAreaId });
-    } else if (subAreaId) {
+    } else if (subAreaId) { // Creating new process
+      console.log('[ProcessForm] Calling onSave for CREATE with: name=', name, 'subAreaId=', subAreaId);
       onSave({ name, subAreaId });
     } else {
-        alert('SubArea ID is missing.'); // Should not happen
+        // This case should ideally not be reached if the form is opened correctly with a subAreaId for creation.
+        alert('SubArea ID is missing. Cannot save process.');
         return;
     }
     // onClose(); // Consider successful save before closing

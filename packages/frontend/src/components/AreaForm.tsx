@@ -29,16 +29,20 @@ export const AreaForm: React.FC<AreaFormProps> = ({ area, projectId, isOpen, onC
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('[AreaForm] handleSubmit - Props: area=', area, 'projectId=', projectId, 'Current form name:', name);
     if (!name.trim()) {
       // alert('Area name is required.'); // To be replaced by notification system
+      // Consider setting a local error message if form needs to display it directly
       return;
     }
-    if (area) {
+    if (area) { // Editing existing area
       onSave({ id: area.id, name, projectId: area.projectId });
-    } else if (projectId) {
+    } else if (projectId) { // Creating new area
+      console.log('[AreaForm] Calling onSave for CREATE with: name=', name, 'projectId=', projectId);
       onSave({ name, projectId });
     } else {
-        alert('Project ID is missing.'); // Should not happen in normal flow
+        // This case should ideally not be reached if the form is opened correctly with a projectId for creation.
+        alert('Project ID is missing. Cannot save area.');
         return;
     }
     // onClose(); // Consider successful save before closing. Kept as is from example.

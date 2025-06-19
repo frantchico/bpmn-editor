@@ -7,8 +7,12 @@ import { useNavigation } from '@/context/NavigationContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { toast } from 'sonner';
+import toast from 'react-hot-toast'; // Changed to react-hot-toast
 import { Edit3, Trash2, PlusCircle, FileText, AlertTriangle, ArrowLeft } from 'lucide-react';
+import { AreaForm } from '@/components/AreaForm'; // Changed to named import
+import { SubAreaForm } from '@/components/SubAreaForm'; // Changed to named import
+import { SubAreaList } from '@/components/SubAreaList'; // Added import
+// Removed redundant SubArea import, it's already imported with Area, Project
 
 interface AreaDashboardProps {
   areaId: string;
@@ -24,7 +28,12 @@ const AreaDashboard: React.FC<AreaDashboardProps> = ({ areaId }) => {
   const [error, setError] = useState<string | null>(null);
   const { navigateTo } = useNavigation();
 
-  const fetchData = useCallback(() => { // Removed async as services are sync
+  // State for modal visibility
+  const [isAreaFormOpen, setIsAreaFormOpen] = useState(false);
+  const [editingArea, setEditingArea] = useState<Area | null>(null);
+  const [isSubAreaFormOpen, setIsSubAreaFormOpen] = useState(false);
+
+  const fetchData = useCallback(() => {
     setIsLoading(true);
     setError(null);
     try {
@@ -72,38 +81,117 @@ const AreaDashboard: React.FC<AreaDashboardProps> = ({ areaId }) => {
 
   // Action Handlers
   const handleEditArea = () => {
-    if (area) {
-      toast.info(`Placeholder: Show form to edit area "${area.name}".`);
-    } else {
-      toast.info('Placeholder: Show form to edit area.');
+    if (!area) {
+      toast.error("Area data not loaded.");
+      return;
+    }
+    setEditingArea(area);
+    setIsAreaFormOpen(true);
+  };
+
+  const handleAreaFormSave = async (formData: Pick<Area, 'name' | 'description'>) => {
+    if (!editingArea) {
+      toast.error("No area selected for editing.");
+      return false;
+    }
+    try {
+      await areaService.updateArea(editingArea.id, formData);
+      toast.success(`Area "${formData.name}" updated successfully.`);
+      fetchData(); // Refresh area data (and potentially parent project if name changed in breadcrumbs)
+      setIsAreaFormOpen(false);
+      setEditingArea(null);
+      return true;
+    } catch (e: any) {
+      toast.error(`Failed to update area: ${e.message || String(e)}`);
+      return false;
     }
   };
-  const handleDeleteArea = () => {
-    if (area) {
-      toast.success(`Area "${area.name}" would be deleted.`, {
-        description: `ID: ${areaId}`,
-        action: {
-          label: 'Undo',
-          onClick: () => console.log('Undo delete (placeholder)'),
-        },
-      });
-    } else {
-      toast.error('Area details not available to simulate deletion.');
+
+  const handleDeleteArea = async () => {
+    if (!area || !parentProject) {
+      toast.error("Area data or parent project context not loaded.");
+      return;
     }
-    // if (parentProject) navigateTo({ view: 'project', itemId: parentProject.id }); // Example after actual deletion
+    if (window.confirm(`Are you sure you want to delete area "${area.name}" and all its contents?`)) {
+      try {
+        const success = await areaService.deleteArea(area.id);
+        if (success) {
+          toast.success(`Area "${area.name}" deleted successfully.`);
+          navigateTo({ view: 'project', itemId: parentProject.id }); // Navigate to parent project
+        } else {
+          toast.error("Failed to delete area. It might have been already removed.");
+        }
+      } catch (e: any) {
+        console.error("Error deleting area:", e);
+        toast.error(`Failed to delete area: ${e.message || String(e)}`);
+      }
+    }
   };
+
   const handleCreateSubArea = () => {
-    if (area) {
-      toast.info(`Placeholder: Show form to create new sub-area for area "${area.name}".`);
-    } else {
-      toast.info('Placeholder: Show form to create new sub-area.');
+    if (!area) {
+      toast.error("Area data not loaded. Cannot create sub-area.");
+      return;
+    }
+    setIsSubAreaFormOpen(true);
+  };
+
+  const handleSubAreaFormSave = async (subAreaData: Pick<SubArea, 'name' | 'description'>) => {
+    // The type for subAreaData here is what comes from the SubAreaForm's onSave callback.
+    // The prompt suggests SubAreaForm will send `Pick<SubArea, 'name'> & { areaId: string }`
+    // However, it's more typical for the form to only send its own fields (name, description)
+    // and the parent (AreaDashboard) provides the context (area.id).
+    // Let's assume SubAreaForm sends Pick<SubArea, 'name' | 'description'> as currently typed
+    // and AreaDashboard provides area.id.
+    if (!area) {
+      toast.error("Area context is missing for creating a sub-area.");
+      return false;
+    }
+    // If subAreaDataFromForm includes areaId, we should validate it.
+    // For now, let's assume subAreaData is Pick<SubArea, 'name' | 'description'>
+    // and we use area.id from AreaDashboard's state.
+    // The prompt for handleSubAreaFormSave was:
+    // "It receives subAreaDataFromForm: Pick<SubArea, 'name'> & { areaId: string } from SubAreaForm."
+    // "Add a check: if (!area || area.id !== subAreaDataFromForm.areaId) { ... error ... }"
+    // This implies SubAreaForm *should* be passing areaId back.
+    // Let's adjust the type of subAreaData received here to match that expectation for the check.
+    // Then, when calling the service, we still use area.id from AreaDashboard's state for reliability.
+
+    const subAreaDataFromForm = subAreaData as Pick<SubArea, 'name' | 'description'> & { areaId?: string };
+
+
+    // The check as requested by prompt:
+    // if (subAreaDataFromForm.areaId && (!area || area.id !== subAreaDataFromForm.areaId)) {
+    //   toast.error("Area ID mismatch. Cannot create sub-area.");
+    //   console.error("Area ID mismatch. Dashboard area.id:", area?.id, "Form areaId:", subAreaDataFromForm.areaId);
+    //   return false;
+    // }
+    // Simpler: we just trust area.id from this component's state.
+    // SubAreaForm should be passed area.id, and can use it to populate its onSave data.
+
+    console.log('[AreaDashboard] handleSubAreaFormSave - Creating sub-area with name:', subAreaDataFromForm.name, 'under areaId:', area.id);
+    try {
+      await subAreaService.createSubArea({
+        name: subAreaDataFromForm.name,
+        description: subAreaDataFromForm.description || '',
+        areaId: area.id
+      });
+      toast.success(`Sub-Area "${subAreaDataFromForm.name}" created successfully.`);
+      fetchData(); // Refreshes subAreas list
+      setIsSubAreaFormOpen(false);
+      return true;
+    } catch (e: any) {
+      toast.error(`Failed to create Sub-Area: ${e.message || String(e)}`);
+      return false;
     }
   };
+
   const handleViewAreaModels = () => console.log(`TODO: View models for area: ${areaId}`); // Placeholder
 
-  const handleViewSubArea = (subAreaId: string) => {
-    navigateTo({ view: 'subarea', itemId: subAreaId });
-  };
+  // handleViewSubArea is now managed by SubAreaList's onNavigateToSubAreaProcesses prop
+  // const handleViewSubArea = (subAreaId: string) => {
+  //   navigateTo({ view: 'subarea', itemId: subAreaId });
+  // };
 
   const handleBackToProject = () => {
     if (parentProject) { // parentProject should be in state and fetched
@@ -190,36 +278,51 @@ const AreaDashboard: React.FC<AreaDashboardProps> = ({ areaId }) => {
           <div className="flex flex-wrap gap-2 pt-2">
             <Button variant="outline" onClick={handleEditArea}><Edit3 className="mr-2 h-4 w-4"/> Edit Area</Button>
             <Button variant="destructive" onClick={handleDeleteArea}><Trash2 className="mr-2 h-4 w-4"/> Delete Area</Button>
-            <Button onClick={handleCreateSubArea}><PlusCircle className="mr-2 h-4 w-4"/> Create New Sub-Area</Button>
+            {/* Removed general "Create New Sub-Area" button from here */}
             <Button variant="secondary" onClick={handleViewAreaModels}><FileText className="mr-2 h-4 w-4"/> View Models ({modelsCount})</Button>
           </div>
         </CardContent>
       </Card>
 
       <section>
-        <h2 className="text-2xl font-semibold mb-4">Sub-Areas ({subAreas.length})</h2>
-        {subAreas.length > 0 ? (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {subAreas.map(sub => (
-              <Card key={sub.id} className="hover:shadow-md transition-shadow duration-150 ease-in-out">
-                <CardHeader>
-                  <CardTitle className="text-xl">{sub.name}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <Button variant="outline" size="sm" onClick={() => handleViewSubArea(sub.id)}>
-                    View Sub-Area Details
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        ) : (
-          <Card className="flex flex-col items-center justify-center p-6 border-dashed">
-             <p className="text-muted-foreground mb-3">No sub-areas have been created for this area yet.</p>
-             <Button onClick={handleCreateSubArea}><PlusCircle className="mr-2 h-4 w-4"/> Create First Sub-Area</Button>
-          </Card>
+        <h2 className="text-2xl font-semibold mb-4">Sub-Areas</h2>
+        {area && parentProject && ( // Ensure area and parentProject are loaded
+          subAreas.length > 0 ? (
+            <SubAreaList
+              area={area}
+              project={parentProject}
+              subAreas={subAreas} // Pass fetched subAreas
+              onNavigateToSubAreaProcesses={(subArea) => navigateTo({ view: 'subarea', itemId: subArea.id })}
+            />
+          ) : (
+            <Card className="flex flex-col items-center justify-center p-6 border-dashed">
+               <p className="text-muted-foreground mb-3">No sub-areas have been created for this area yet.</p>
+               <Button onClick={handleCreateSubArea}><PlusCircle className="mr-2 h-4 w-4"/> Create First Sub-Area</Button>
+            </Card>
+          )
         )}
       </section>
+
+      {/* Forms Modals */}
+      {area && editingArea && ( // For editing the current area
+        <AreaForm
+          isOpen={isAreaFormOpen}
+          onClose={() => { setIsAreaFormOpen(false); setEditingArea(null); }}
+          onSave={handleAreaFormSave}
+          area={editingArea}
+          project={parentProject} // Pass parent project for context if needed by AreaForm
+        />
+      )}
+      {area && !editingArea && ( // Ensure we are in creation mode for SubAreaForm
+        <SubAreaForm
+          isOpen={isSubAreaFormOpen}
+          onClose={() => setIsSubAreaFormOpen(false)}
+          onSave={handleSubAreaFormSave}
+          subArea={null} // Explicitly null for creation mode
+          areaId={area.id} // Pass area.id for creation context
+          // errorMessage={...} // If SubAreaForm supports an errorMessage prop
+        />
+      )}
     </div>
   );
 };

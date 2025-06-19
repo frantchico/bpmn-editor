@@ -26,16 +26,20 @@ export const SubAreaForm: React.FC<SubAreaFormProps> = ({ subArea, areaId, isOpe
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('[SubAreaForm] handleSubmit - Props: subArea=', subArea, 'areaId=', areaId, 'Current form name:', name);
     if (!name.trim()) {
       // alert('SubArea name is required.'); // To be replaced
+      // Consider setting a local error message if form needs to display it directly
       return;
     }
-    if (subArea) {
+    if (subArea) { // Editing existing subArea
       onSave({ id: subArea.id, name, areaId: subArea.areaId });
-    } else if (areaId) {
+    } else if (areaId) { // Creating new subArea
+      console.log('[SubAreaForm] Calling onSave for CREATE with: name=', name, 'areaId=', areaId);
       onSave({ name, areaId });
     } else {
-        alert('Area ID is missing.'); // Should not happen
+        // This case should ideally not be reached if the form is opened correctly with an areaId for creation.
+        alert('Area ID is missing. Cannot save sub-area.');
         return;
     }
     // onClose(); // Consider successful save before closing
