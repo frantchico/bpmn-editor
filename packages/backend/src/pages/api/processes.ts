@@ -12,6 +12,9 @@ type Process = {
   status: string;
   subAreaId: string; // Changed from areaId
   model: string; // Added - XML of the BPMN diagram
+  version?: number;
+  updatedAt?: string;
+  projectId?: string;
 };
 
 const processesFilePath = path.join(process.cwd(), 'data', 'processes.json');

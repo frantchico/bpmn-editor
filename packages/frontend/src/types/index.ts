@@ -36,6 +36,9 @@ export interface Process {
   status: string; // Added
   subAreaId: string; // Changed from areaId
   model: string; // Added - XML of the BPMN diagram
+  version?: number; // Added for model versioning
+  updatedAt?: string; // Added, ISO date string for last update
+  projectId?: string; // Added for context/denormalization
 }
 
 export interface BpmnModel {

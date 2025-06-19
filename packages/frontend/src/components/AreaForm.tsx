@@ -7,32 +7,9 @@ import { Textarea } from '@/components/ui/textarea'; // For description
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'; // For status
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { generateAreaCode } from '@/lib/codeGenerator';
-// Mock services - replace with actual service calls
-const mockProjectService = {
-  getProjectById: async (id: string): Promise<Project | null> => {
-    console.log(`[MockService] Fetching project with id: ${id}`);
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 500));
-    // Example project data - adapt as needed
-    if (id === "proj1") {
-      return { id: "proj1", name: "Project Alpha", code: "ALPHA", description: "Proj Alpha desc", status: "Active", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
-    }
-    return null;
-  },
-};
-const mockAreaService = {
-  getAreasByProjectId: async (projectId: string): Promise<Area[]> => {
-    console.log(`[MockService] Fetching areas for project id: ${projectId}`);
-    await new Promise(resolve => setTimeout(resolve, 500));
-    // Example existing areas - adapt as needed
-    if (projectId === "proj1") {
-      return [
-        { id: "area1", name: "Core Systems", code: "ALPHA-01", projectId: "proj1", description: "Core systems area", status: "Active" },
-      ];
-    }
-    return [];
-  },
-};
+import { projectService } from '@/services/projectService';
+import { areaService } from '@/services/areaService';
+import { toast } from 'sonner'; // Added for notifications
 
 interface AreaFormProps {
   area?: Area | null;
@@ -48,72 +25,97 @@ export const AreaForm: React.FC<AreaFormProps> = ({ area, projectId, isOpen, onC
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
   const [description, setDescription] = useState('');
-  const [status, setStatus] = useState(''); // Default or fetched
-  const [isGeneratingCode, setIsGeneratingCode] = useState(false);
+  const [status, setStatus] = useState('');
+  const [isCodeLoading, setIsCodeLoading] = useState(false);
+  const [codeGenerationError, setCodeGenerationError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false); // Added
 
   useEffect(() => {
     if (isOpen) {
-      if (area) { // Editing existing area
+      setCodeGenerationError(null);
+      setIsSaving(false); // Reset saving state
+      if (area) {
         setName(area.name);
         setCode(area.code);
         setDescription(area.description || '');
         setStatus(area.status || '');
-      } else { // Creating new area
+      } else {
         setName('');
-        // Code is generated below
         setDescription('');
-        setStatus('Active'); // Default status for new areas
+        setStatus('Active');
         if (projectId) {
-          setIsGeneratingCode(true);
-          const fetchAndGenerateCode = async () => {
-            try {
-              const parentProject = await mockProjectService.getProjectById(projectId);
-              const existingAreas = await mockAreaService.getAreasByProjectId(projectId);
-              if (parentProject) {
-                const existingAreaCodes = existingAreas.map(a => a.code);
-                const newCode = generateAreaCode(parentProject.code, existingAreaCodes);
-                setCode(newCode);
-              } else {
-                console.error("Parent project not found for code generation.");
-                setCode(''); // Or handle error appropriately
-              }
-            } catch (error) {
-              console.error("Error generating area code:", error);
-              setCode(''); // Or handle error appropriately
-            } finally {
-              setIsGeneratingCode(false);
+          setIsCodeLoading(true);
+          setCodeGenerationError(null); // Reset specific code gen error
+          // No actual async calls to Promise.all needed since services are sync for now
+          try {
+            const parentProject = projectService.getProjectById(projectId);
+            const existingAreas = areaService.getAreas(projectId);
+
+            if (parentProject) {
+              const existingAreaCodes = existingAreas.map(a => a.code);
+              const newCode = generateAreaCode(parentProject.code, existingAreaCodes);
+              setCode(newCode);
+            } else {
+              const err = `Parent project (ID: ${projectId}) not found for code generation.`;
+              console.error(err);
+              toast.error(err); // Use toast for code gen error
+              setCodeGenerationError(err); // Still set local error if needed for inline display
+              setCode('');
             }
-          };
-          fetchAndGenerateCode();
+          } catch (error: any) {
+            const err = `Error preparing form: ${error?.message || String(error)}`;
+            console.error(err);
+            toast.error(err); // Use toast
+            setCodeGenerationError(err);
+            setCode('');
+          } finally {
+            setIsCodeLoading(false);
+          }
         } else {
-          setCode(''); // No projectId, cannot generate code
+          setCode('');
+          const err = "Project ID is missing, cannot generate area code.";
+          setCodeGenerationError(err);
+          toast.error(err); // Toast for missing projectId
         }
       }
     }
   }, [area, projectId, isOpen]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !code.trim()) {
-      // Proper error handling/notification should be implemented
-      alert('Area name and code are required.');
+      toast.error('Area name and code are required.');
       return;
     }
-    const areaData = {
+
+    setIsSaving(true);
+    const areaDataToSave = {
       name,
       code,
       description,
       status,
-      projectId: area ? area.projectId : projectId!, // Ensure projectId is correctly assigned
+      projectId: area ? area.projectId : projectId!,
     };
 
-    if (area) { // Editing
-      onSave({ ...areaData, id: area.id });
-    } else if (projectId) { // Creating
-      onSave(areaData);
-    } else {
-      alert('Project ID is missing. Cannot save area.');
-      return;
+    try {
+      if (area) {
+        await onSave({ ...areaDataToSave, id: area.id });
+        toast.success(`Area '${name}' updated successfully!`);
+      } else if (projectId) {
+        await onSave(areaDataToSave);
+        toast.success(`Area '${name}' created successfully!`);
+      } else {
+        // This case should ideally be prevented by UI logic
+        toast.error('Project ID is missing. Cannot save area.');
+        setIsSaving(false);
+        return;
+      }
+      onClose(); // Close dialog on success
+    } catch (error: any) {
+      console.error("Failed to save area:", error);
+      toast.error(`Failed to save area: ${error.message}`);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -135,8 +137,9 @@ export const AreaForm: React.FC<AreaFormProps> = ({ area, projectId, isOpen, onC
           </div>
           <div>
             <Label htmlFor="areaCode">Area Code</Label>
-            <Input id="areaCode" value={code} onChange={(e) => setCode(e.target.value)} placeholder="e.g., CUST-ONB" required disabled={isGeneratingCode} />
-            {isGeneratingCode && <p className="text-sm text-muted-foreground">Generating code...</p>}
+            <Input id="areaCode" value={code} onChange={(e) => setCode(e.target.value)} placeholder="e.g., CUST-ONB" required disabled={isCodeLoading} />
+            {isCodeLoading && <p className="text-sm text-muted-foreground">Generating code...</p>}
+            {codeGenerationError && <p className="text-sm text-red-600 mt-1">{codeGenerationError}</p>}
           </div>
           <div>
             <Label htmlFor="areaDescription">Description</Label>
@@ -157,8 +160,10 @@ export const AreaForm: React.FC<AreaFormProps> = ({ area, projectId, isOpen, onC
           </div>
           {errorMessage && <p className="text-sm text-red-600 mt-1">{errorMessage}</p>}
           <DialogFooter className="pt-4">
-            <DialogClose asChild><Button type="button" variant="outline" onClick={onClose}>Cancel</Button></DialogClose>
-            <Button type="submit" disabled={isGeneratingCode}>{area ? 'Save Changes' : 'Create Area'}</Button>
+            <DialogClose asChild><Button type="button" variant="outline" onClick={onClose} disabled={isSaving || isCodeLoading}>Cancel</Button></DialogClose>
+            <Button type="submit" disabled={isSaving || isCodeLoading}>
+              {isSaving ? (area ? 'Saving...' : 'Creating...') : (area ? 'Save Changes' : 'Create Area')}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

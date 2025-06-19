@@ -7,30 +7,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { generateSubAreaCode } from '@/lib/codeGenerator';
-
-// Mock services - replace with actual service calls
-const mockAreaService = {
-  getAreaById: async (id: string): Promise<Area | null> => {
-    console.log(`[MockService] Fetching area with id: ${id}`);
-    await new Promise(resolve => setTimeout(resolve, 500));
-    if (id === "area1") { // Corresponds to parent Area of SubArea for generation
-      return { id: "area1", name: "Core Systems", code: "ALPHA-01", projectId: "proj1", description: "Core systems area", status: "Active" };
-    }
-    return null;
-  },
-};
-const mockSubAreaService = {
-  getSubAreasByAreaId: async (areaId: string): Promise<SubArea[]> => {
-    console.log(`[MockService] Fetching subareas for area id: ${areaId}`);
-    await new Promise(resolve => setTimeout(resolve, 500));
-    if (areaId === "area1") {
-      return [
-        { id: "sub1", name: "Identity Management", code: "ALPHA-01.01", areaId: "area1", projectId: "proj1", description: "Handles user identity", status: "Active" },
-      ];
-    }
-    return [];
-  },
-};
+import { areaService } from '@/services/areaService';
+import { subAreaService } from '@/services/subAreaService';
+import { toast } from 'sonner'; // Added
 
 interface SubAreaFormProps {
   subArea?: SubArea | null;
@@ -47,81 +26,103 @@ export const SubAreaForm: React.FC<SubAreaFormProps> = ({ subArea, areaId, proje
   const [code, setCode] = useState('');
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState('');
-  const [isGeneratingCode, setIsGeneratingCode] = useState(false);
+  const [isCodeLoading, setIsCodeLoading] = useState(false);
+  const [codeGenerationError, setCodeGenerationError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false); // Added
 
   useEffect(() => {
     if (isOpen) {
-      if (subArea) { // Editing existing subArea
+      setCodeGenerationError(null);
+      setIsSaving(false); // Reset
+      if (subArea) {
         setName(subArea.name);
         setCode(subArea.code);
         setDescription(subArea.description || '');
         setStatus(subArea.status || '');
-        // projectId is part of subArea object, no need to set explicitly if it's already there
-      } else { // Creating new subArea
+      } else {
         setName('');
         setDescription('');
-        setStatus('Active'); // Default status
+        setStatus('Active');
         if (areaId) {
-          setIsGeneratingCode(true);
-          const fetchAndGenerateCode = async () => {
-            try {
-              const parentArea = await mockAreaService.getAreaById(areaId);
-              const existingSubAreas = await mockSubAreaService.getSubAreasByAreaId(areaId);
-              if (parentArea) {
-                const existingSubAreaCodes = existingSubAreas.map(sa => sa.code);
-                const newCode = generateSubAreaCode(parentArea.code, existingSubAreaCodes);
-                setCode(newCode);
-              } else {
-                console.error("Parent area not found for code generation.");
-                setCode('');
-              }
-            } catch (error) {
-              console.error("Error generating sub-area code:", error);
+          setIsCodeLoading(true);
+          setCodeGenerationError(null);
+          try {
+            const parentArea = areaService.getAreaById(areaId);
+            const existingSubAreas = subAreaService.getSubAreas(areaId);
+
+            if (parentArea) {
+              const existingSubAreaCodes = existingSubAreas.map(sa => sa.code);
+              const newCode = generateSubAreaCode(parentArea.code, existingSubAreaCodes);
+              setCode(newCode);
+            } else {
+              const err = `Parent area (ID: ${areaId}) not found for code generation.`;
+              console.error(err);
+              toast.error(err);
+              setCodeGenerationError(err);
               setCode('');
-            } finally {
-              setIsGeneratingCode(false);
             }
-          };
-          fetchAndGenerateCode();
+          } catch (error: any) {
+            const err = `Error preparing form: ${error?.message || String(error)}`;
+            console.error(err);
+            toast.error(err);
+            setCodeGenerationError(err);
+            setCode('');
+          } finally {
+            setIsCodeLoading(false);
+          }
         } else {
           setCode('');
+          const err = "Area ID is missing, cannot generate sub-area code.";
+          setCodeGenerationError(err);
+          toast.error(err);
         }
       }
     }
   }, [subArea, areaId, isOpen]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !code.trim()) {
-      alert('SubArea name and code are required.');
+      toast.error('SubArea name and code are required.');
       return;
     }
 
     // Crucial: Ensure projectId is correctly passed for new SubAreas.
-    // If editing, subArea.projectId is used. If creating, the projectId prop (passed from parent context, e.g. Area page) is used.
+    // If editing, subArea.projectId is used. If creating, the projectId prop (passed from parent context) is used.
     const currentProjectId = subArea ? subArea.projectId : projectId;
-    if (!currentProjectId && !subArea) { // Check only if creating new and projectId is missing
-        alert('Project ID is missing for the new SubArea. Cannot save.');
+    if (!currentProjectId && !subArea) {
+        toast.error('Project ID is missing for the new SubArea. Cannot save.');
         return;
     }
 
-    const subAreaData = {
+    setIsSaving(true);
+    const subAreaDataToSave = {
       name,
       code,
       description,
       status,
       areaId: subArea ? subArea.areaId : areaId!,
-      projectId: currentProjectId!, // Assert non-null as it's checked or from existing subArea
+      projectId: currentProjectId!,
     };
 
-    if (subArea) { // Editing
-      onSave({ ...subAreaData, id: subArea.id });
-    } else if (areaId && currentProjectId) { // Creating
-      onSave(subAreaData);
-    } else {
-      // This case should be prevented by earlier checks.
-      alert('Area ID or Project ID is missing. Cannot save sub-area.');
-      return;
+    try {
+      if (subArea) {
+        await onSave({ ...subAreaDataToSave, id: subArea.id });
+        toast.success(`SubArea '${name}' updated successfully!`);
+      } else if (areaId && currentProjectId) {
+        await onSave(subAreaDataToSave);
+        toast.success(`SubArea '${name}' created successfully!`);
+      } else {
+        toast.error('Area ID or Project ID is missing. Cannot save sub-area.');
+        setIsSaving(false);
+        return;
+      }
+      onClose(); // Close dialog on success
+    } catch (error: any) {
+      console.error("Failed to save sub-area:", error);
+      toast.error(`Failed to save sub-area: ${error.message}`);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -143,8 +144,9 @@ export const SubAreaForm: React.FC<SubAreaFormProps> = ({ subArea, areaId, proje
           </div>
           <div>
             <Label htmlFor="subAreaCode">SubArea Code</Label>
-            <Input id="subAreaCode" value={code} onChange={(e) => setCode(e.target.value)} placeholder="e.g., AREA-01.01" required disabled={isGeneratingCode} />
-            {isGeneratingCode && <p className="text-sm text-muted-foreground">Generating code...</p>}
+            <Input id="subAreaCode" value={code} onChange={(e) => setCode(e.target.value)} placeholder="e.g., AREA-01.01" required disabled={isCodeLoading} />
+            {isCodeLoading && <p className="text-sm text-muted-foreground">Generating code...</p>}
+            {codeGenerationError && <p className="text-sm text-red-600 mt-1">{codeGenerationError}</p>}
           </div>
           <div>
             <Label htmlFor="subAreaDescription">Description</Label>
@@ -165,8 +167,10 @@ export const SubAreaForm: React.FC<SubAreaFormProps> = ({ subArea, areaId, proje
           </div>
           {errorMessage && <p className="text-sm text-red-600 mt-1">{errorMessage}</p>}
           <DialogFooter className="pt-4">
-            <DialogClose asChild><Button type="button" variant="outline" onClick={onClose}>Cancel</Button></DialogClose>
-            <Button type="submit" disabled={isGeneratingCode}>{subArea ? 'Save Changes' : 'Create SubArea'}</Button>
+            <DialogClose asChild><Button type="button" variant="outline" onClick={onClose} disabled={isSaving || isCodeLoading}>Cancel</Button></DialogClose>
+            <Button type="submit" disabled={isSaving || isCodeLoading}>
+              {isSaving ? (subArea ? 'Saving...' : 'Creating...') : (subArea ? 'Save Changes' : 'Create SubArea')}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

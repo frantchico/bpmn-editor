@@ -5,7 +5,10 @@
  * @returns A string containing the BPMN XML.
  */
 export function generateMinimalBpmnXml(processName: string): string {
-  const processId = `Process_${new Date().getTime()}`; // A unique ID for the process element
+  // Generate a more unique ID by combining timestamp with a random number
+  const uniqueSuffix = `${new Date().getTime()}_${Math.floor(Math.random() * 10000)}`;
+  const processId = `Process_${uniqueSuffix}`;
+  const definitionsId = `Definitions_${uniqueSuffix}`;
   const startEventId = `StartEvent_1`;
   const endEventId = `EndEvent_1`;
 
@@ -29,7 +32,7 @@ export function generateMinimalBpmnXml(processName: string): string {
                   xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
                   xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
                   xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
-                  id="Definitions_${new Date().getTime()}"
+                  id="${definitionsId}"
                   targetNamespace="http://bpmn.io/schema/bpmn">
   <bpmn:process id="${processId}" name="${sanitizedProcessName}" isExecutable="true">
     <bpmn:startEvent id="${startEventId}" name="Start">
