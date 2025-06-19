@@ -7,8 +7,12 @@ import { useNavigation } from '@/context/NavigationContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { toast } from 'sonner';
+import toast from 'react-hot-toast'; // Changed to react-hot-toast
 import { Edit3, Trash2, PlusCircle, FileText, AlertTriangle, ArrowLeft } from 'lucide-react';
+import AreaForm from '@/components/AreaForm'; // Added import
+import SubAreaForm from '@/components/SubAreaForm'; // Added import
+import { SubAreaList } from '@/components/SubAreaList'; // Added import
+import type { SubArea } from '@/types'; // Ensure SubArea type is available for form save handler
 
 interface AreaDashboardProps {
   areaId: string;
@@ -24,7 +28,12 @@ const AreaDashboard: React.FC<AreaDashboardProps> = ({ areaId }) => {
   const [error, setError] = useState<string | null>(null);
   const { navigateTo } = useNavigation();
 
-  const fetchData = useCallback(() => { // Removed async as services are sync
+  // State for modal visibility
+  const [isAreaFormOpen, setIsAreaFormOpen] = useState(false);
+  const [editingArea, setEditingArea] = useState<Area | null>(null);
+  const [isSubAreaFormOpen, setIsSubAreaFormOpen] = useState(false);
+
+  const fetchData = useCallback(() => {
     setIsLoading(true);
     setError(null);
     try {
@@ -72,38 +81,84 @@ const AreaDashboard: React.FC<AreaDashboardProps> = ({ areaId }) => {
 
   // Action Handlers
   const handleEditArea = () => {
-    if (area) {
-      toast.info(`Placeholder: Show form to edit area "${area.name}".`);
-    } else {
-      toast.info('Placeholder: Show form to edit area.');
+    if (!area) {
+      toast.error("Area data not loaded.");
+      return;
+    }
+    setEditingArea(area);
+    setIsAreaFormOpen(true);
+  };
+
+  const handleAreaFormSave = async (formData: Pick<Area, 'name' | 'description'>) => {
+    if (!editingArea) {
+      toast.error("No area selected for editing.");
+      return false;
+    }
+    try {
+      await areaService.updateArea(editingArea.id, formData);
+      toast.success(`Area "${formData.name}" updated successfully.`);
+      fetchData(); // Refresh area data (and potentially parent project if name changed in breadcrumbs)
+      setIsAreaFormOpen(false);
+      setEditingArea(null);
+      return true;
+    } catch (e: any) {
+      toast.error(`Failed to update area: ${e.message || String(e)}`);
+      return false;
     }
   };
-  const handleDeleteArea = () => {
-    if (area) {
-      toast.success(`Area "${area.name}" would be deleted.`, {
-        description: `ID: ${areaId}`,
-        action: {
-          label: 'Undo',
-          onClick: () => console.log('Undo delete (placeholder)'),
-        },
-      });
-    } else {
-      toast.error('Area details not available to simulate deletion.');
+
+  const handleDeleteArea = async () => {
+    if (!area || !parentProject) {
+      toast.error("Area data or parent project context not loaded.");
+      return;
     }
-    // if (parentProject) navigateTo({ view: 'project', itemId: parentProject.id }); // Example after actual deletion
+    if (window.confirm(`Are you sure you want to delete area "${area.name}" and all its contents?`)) {
+      try {
+        const success = await areaService.deleteArea(area.id);
+        if (success) {
+          toast.success(`Area "${area.name}" deleted successfully.`);
+          navigateTo({ view: 'project', itemId: parentProject.id }); // Navigate to parent project
+        } else {
+          toast.error("Failed to delete area. It might have been already removed.");
+        }
+      } catch (e: any) {
+        console.error("Error deleting area:", e);
+        toast.error(`Failed to delete area: ${e.message || String(e)}`);
+      }
+    }
   };
+
   const handleCreateSubArea = () => {
-    if (area) {
-      toast.info(`Placeholder: Show form to create new sub-area for area "${area.name}".`);
-    } else {
-      toast.info('Placeholder: Show form to create new sub-area.');
+    if (!area) {
+      toast.error("Area data not loaded. Cannot create sub-area.");
+      return;
+    }
+    setIsSubAreaFormOpen(true);
+  };
+
+  const handleSubAreaFormSave = async (subAreaData: Pick<SubArea, 'name' | 'description'>) => {
+    if (!area) {
+      toast.error("Area context is missing for creating a sub-area.");
+      return false;
+    }
+    try {
+      await subAreaService.createSubArea({ ...subAreaData, areaId: area.id });
+      toast.success(`Sub-Area "${subAreaData.name}" created successfully.`);
+      fetchData(); // Refreshes subAreas list
+      setIsSubAreaFormOpen(false);
+      return true;
+    } catch (e: any) {
+      toast.error(`Failed to create Sub-Area: ${e.message || String(e)}`);
+      return false;
     }
   };
+
   const handleViewAreaModels = () => console.log(`TODO: View models for area: ${areaId}`); // Placeholder
 
-  const handleViewSubArea = (subAreaId: string) => {
-    navigateTo({ view: 'subarea', itemId: subAreaId });
-  };
+  // handleViewSubArea is now managed by SubAreaList's onNavigateToSubAreaProcesses prop
+  // const handleViewSubArea = (subAreaId: string) => {
+  //   navigateTo({ view: 'subarea', itemId: subAreaId });
+  // };
 
   const handleBackToProject = () => {
     if (parentProject) { // parentProject should be in state and fetched
@@ -197,29 +252,42 @@ const AreaDashboard: React.FC<AreaDashboardProps> = ({ areaId }) => {
       </Card>
 
       <section>
-        <h2 className="text-2xl font-semibold mb-4">Sub-Areas ({subAreas.length})</h2>
-        {subAreas.length > 0 ? (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {subAreas.map(sub => (
-              <Card key={sub.id} className="hover:shadow-md transition-shadow duration-150 ease-in-out">
-                <CardHeader>
-                  <CardTitle className="text-xl">{sub.name}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <Button variant="outline" size="sm" onClick={() => handleViewSubArea(sub.id)}>
-                    View Sub-Area Details
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        ) : (
-          <Card className="flex flex-col items-center justify-center p-6 border-dashed">
-             <p className="text-muted-foreground mb-3">No sub-areas have been created for this area yet.</p>
-             <Button onClick={handleCreateSubArea}><PlusCircle className="mr-2 h-4 w-4"/> Create First Sub-Area</Button>
-          </Card>
+        <h2 className="text-2xl font-semibold mb-4">Sub-Areas</h2>
+        {area && parentProject && ( // Ensure area and parentProject are loaded
+          subAreas.length > 0 ? (
+            <SubAreaList
+              area={area}
+              project={parentProject}
+              subAreas={subAreas} // Pass fetched subAreas
+              onNavigateToSubAreaProcesses={(subArea) => navigateTo({ view: 'subarea', itemId: subArea.id })}
+            />
+          ) : (
+            <Card className="flex flex-col items-center justify-center p-6 border-dashed">
+               <p className="text-muted-foreground mb-3">No sub-areas have been created for this area yet.</p>
+               <Button onClick={handleCreateSubArea}><PlusCircle className="mr-2 h-4 w-4"/> Create First Sub-Area</Button>
+            </Card>
+          )
         )}
       </section>
+
+      {/* Forms Modals */}
+      {area && editingArea && ( // For editing the current area
+        <AreaForm
+          isOpen={isAreaFormOpen}
+          onClose={() => { setIsAreaFormOpen(false); setEditingArea(null); }}
+          onSave={handleAreaFormSave}
+          area={editingArea}
+          project={parentProject} // Pass parent project for context if needed by AreaForm
+        />
+      )}
+      {area && ( // For creating a sub-area under the current area
+        <SubAreaForm
+          isOpen={isSubAreaFormOpen}
+          onClose={() => setIsSubAreaFormOpen(false)}
+          onSave={handleSubAreaFormSave}
+          area={area} // Pass parent area
+        />
+      )}
     </div>
   );
 };

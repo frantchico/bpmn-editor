@@ -8,8 +8,12 @@ import { useNavigation } from '@/context/NavigationContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { toast } from 'sonner';
+import toast from 'react-hot-toast'; // Changed to react-hot-toast
 import { Edit3, Trash2, PlusCircle, FileText, AlertTriangle, ArrowLeft, Workflow } from 'lucide-react';
+import SubAreaForm from '@/components/SubAreaForm'; // Added import
+import ProcessForm from '@/components/ProcessForm'; // Added import
+import { ProcessList } from '@/components/ProcessList'; // Added import
+import type { Process } from '@/types'; // Ensure Process type is available
 
 interface SubAreaDashboardProps {
   subAreaId: string;
@@ -26,7 +30,12 @@ const SubAreaDashboard: React.FC<SubAreaDashboardProps> = ({ subAreaId }) => {
   const [error, setError] = useState<string | null>(null);
   const { navigateTo } = useNavigation();
 
-  const fetchData = useCallback(() => { // Removed async as services are sync
+  // State for modal visibility
+  const [isSubAreaFormOpen, setIsSubAreaFormOpen] = useState(false);
+  const [editingSubArea, setEditingSubArea] = useState<SubArea | null>(null);
+  const [isProcessFormOpen, setIsProcessFormOpen] = useState(false);
+
+  const fetchData = useCallback(() => {
     setIsLoading(true);
     setError(null);
     try {
@@ -75,38 +84,86 @@ const SubAreaDashboard: React.FC<SubAreaDashboardProps> = ({ subAreaId }) => {
 
   // Action Handlers
   const handleEditSubArea = () => {
-    if (subArea) {
-      toast.info(`Placeholder: Show form to edit sub-area "${subArea.name}".`);
-    } else {
-      toast.info('Placeholder: Show form to edit sub-area.');
+    if (!subArea) {
+      toast.error("Sub-Area data not loaded.");
+      return;
+    }
+    setEditingSubArea(subArea);
+    setIsSubAreaFormOpen(true);
+  };
+
+  const handleSubAreaFormSave = async (formData: Pick<SubArea, 'name' | 'description'>) => {
+    if (!editingSubArea) {
+      toast.error("No Sub-Area selected for editing.");
+      return false;
+    }
+    try {
+      await subAreaService.updateSubArea(editingSubArea.id, formData);
+      toast.success(`Sub-Area "${formData.name}" updated successfully.`);
+      fetchData();
+      setIsSubAreaFormOpen(false);
+      setEditingSubArea(null);
+      return true;
+    } catch (e: any) {
+      toast.error(`Failed to update Sub-Area: ${e.message || String(e)}`);
+      return false;
     }
   };
-  const handleDeleteSubArea = () => {
-    if (subArea) {
-      toast.success(`Sub-Area "${subArea.name}" would be deleted.`, {
-        description: `ID: ${subAreaId}`,
-        action: {
-          label: 'Undo',
-          onClick: () => console.log('Undo delete (placeholder)'),
-        },
-      });
-    } else {
-      toast.error('Sub-Area details not available to simulate deletion.');
+
+  const handleDeleteSubArea = async () => {
+    if (!subArea || !parentArea) {
+      toast.error("Sub-Area data or parent area context not loaded.");
+      return;
     }
-    // if (parentArea) navigateTo({ view: 'area', itemId: parentArea.id }); // Example after actual deletion
+    if (window.confirm(`Are you sure you want to delete sub-area "${subArea.name}" and all its contents?`)) {
+      try {
+        const success = await subAreaService.deleteSubArea(subArea.id);
+        if (success) {
+          toast.success(`Sub-Area "${subArea.name}" deleted successfully.`);
+          navigateTo({ view: 'area', itemId: parentArea.id }); // Navigate to parent area
+        } else {
+          toast.error("Failed to delete sub-area. It might have been already removed.");
+        }
+      } catch (e: any) {
+        console.error("Error deleting sub-area:", e);
+        toast.error(`Failed to delete sub-area: ${e.message || String(e)}`);
+      }
+    }
   };
+
   const handleCreateProcess = () => {
-    if (subArea) {
-      toast.info(`Placeholder: Show form to create new process for sub-area "${subArea.name}".`);
-    } else {
-      toast.info('Placeholder: Show form to create new process.');
+    if (!subArea) {
+      toast.error("Sub-Area data not loaded. Cannot create process.");
+      return;
+    }
+    setIsProcessFormOpen(true);
+  };
+
+  const handleProcessFormSave = async (processData: Pick<Process, 'name' | 'description'>) => {
+    if (!subArea) {
+      toast.error("Sub-Area context is missing for creating a process.");
+      return false;
+    }
+    try {
+      await processService.createProcess({ ...processData, subAreaId: subArea.id });
+      toast.success(`Process "${processData.name}" created successfully.`);
+      fetchData(); // Refreshes processes list and potentially modelsCount
+      setIsProcessFormOpen(false);
+      return true;
+    } catch (e: any) {
+      toast.error(`Failed to create Process: ${e.message || String(e)}`);
+      return false;
     }
   };
+
   const handleViewSubAreaModels = () => console.log(`TODO: View models for sub-area: ${subAreaId}`); // Placeholder
 
   const handleViewProcess = (processId: string) => {
-    console.log(`TODO: Navigate to editor/viewer for process: ${processId}`);
-    // navigateTo({ view: 'editor', itemId: processId }); // Example for future
+    if (!processId) {
+      toast.error("Process ID is missing.");
+      return;
+    }
+    navigateTo({ view: 'editor', itemId: processId });
   };
 
   const handleBackToArea = () => {
@@ -206,33 +263,43 @@ const SubAreaDashboard: React.FC<SubAreaDashboardProps> = ({ subAreaId }) => {
       </Card>
 
       <section>
-        <h2 className="text-2xl font-semibold mb-4">Processes ({processes.length})</h2>
-        {processes.length > 0 ? (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {processes.map(proc => (
-              <Card key={proc.id} className="hover:shadow-md transition-shadow duration-150 ease-in-out">
-                <CardHeader>
-                  <CardTitle className="text-xl flex items-center">
-                    <Workflow className="mr-2 h-5 w-5 text-indigo-500"/>
-                    {proc.name}
-                  </CardTitle>
-                  <CardDescription>Process ID: {proc.id}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button variant="outline" size="sm" onClick={() => handleViewProcess(proc.id)}>
-                    View Process / Models
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        ) : (
-          <Card className="flex flex-col items-center justify-center p-6 border-dashed">
-             <p className="text-muted-foreground mb-3">No processes have been created for this sub-area yet.</p>
-             <Button onClick={handleCreateProcess}><PlusCircle className="mr-2 h-4 w-4"/> Create First Process</Button>
-          </Card>
+        <h2 className="text-2xl font-semibold mb-4">Processes</h2>
+        {subArea && parentArea && parentProject && ( // Ensure all parent context is loaded
+          processes.length > 0 ? (
+            <ProcessList
+              subArea={subArea}
+              area={parentArea}
+              project={parentProject}
+              processes={processes} // Pass fetched processes
+              onNavigateToEditor={handleViewProcess}
+            />
+          ) : (
+            <Card className="flex flex-col items-center justify-center p-6 border-dashed">
+               <p className="text-muted-foreground mb-3">No processes have been created for this sub-area yet.</p>
+               <Button onClick={handleCreateProcess}><PlusCircle className="mr-2 h-4 w-4"/> Create First Process</Button>
+            </Card>
+          )
         )}
       </section>
+
+      {/* Forms Modals */}
+      {subArea && editingSubArea && ( // For editing current sub-area
+        <SubAreaForm
+          isOpen={isSubAreaFormOpen}
+          onClose={() => { setIsSubAreaFormOpen(false); setEditingSubArea(null); }}
+          onSave={handleSubAreaFormSave}
+          subArea={editingSubArea}
+          area={parentArea} // Pass parent area for context
+        />
+      )}
+      {subArea && ( // For creating a process under current sub-area
+        <ProcessForm
+          isOpen={isProcessFormOpen}
+          onClose={() => setIsProcessFormOpen(false)}
+          onSave={handleProcessFormSave}
+          subArea={subArea} // Pass parent subArea
+        />
+      )}
     </div>
   );
 };
