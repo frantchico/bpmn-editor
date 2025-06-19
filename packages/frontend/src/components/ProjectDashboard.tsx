@@ -11,7 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import toast from 'react-hot-toast';
 import { Edit3, Trash2, PlusCircle, FileText, AlertTriangle } from 'lucide-react';
 import ProjectForm from '@/components/ProjectForm'; // Added import
-import AreaForm from '@/components/AreaForm'; // Added import
+import { AreaForm } from '@/components/AreaForm'; // Changed to named import
 import { AreaList } from '@/components/AreaList'; // Added import
 
 interface ProjectDashboardProps {
