@@ -30,19 +30,19 @@ const GeneralDashboard: React.FC<Record<string, never>> = (/*{ setActiveView }*/
       try {
         const projects = projectService.getProjects();
         const sortedProjects = [...projects].sort((a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      );
-      setAllProjects(sortedProjects);
-    } catch (error) {
-      console.error("Error fetching all projects:", error);
-    } finally {
-      setLoadingProjects(false);
-    }
-  };
-  // Renamed original useEffect's inner function to loadData and call it.
-  useEffect(() => {
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+        setAllProjects(sortedProjects);
+      } catch (error) {
+        console.error("Error fetching all projects:", error);
+        // Potentially set an error state here to display to the user
+      } finally {
+        setLoadingProjects(false);
+      }
+    };
+
     loadData();
-  }, []);
+  }, []); // Empty dependency array to run once on mount
 
   const openCreateProjectForm = () => {
     setProjectFormError(null);
