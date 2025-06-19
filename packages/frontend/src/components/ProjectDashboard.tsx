@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Skeleton } from '@/components/ui/skeleton';
 import toast from 'react-hot-toast';
 import { Edit3, Trash2, PlusCircle, FileText, AlertTriangle } from 'lucide-react';
-import ProjectForm from '@/components/ProjectForm'; // Added import
+import { ProjectForm } from '@/components/ProjectForm'; // Changed to named import
 import { AreaForm } from '@/components/AreaForm'; // Changed to named import
 import { AreaList } from '@/components/AreaList'; // Added import
 
