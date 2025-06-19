@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react' // Added useEffect
-import { useParams } from 'react-router-dom'
+import React, { useState, useRef, useEffect } from 'react'
+// Removed useParams import: import { useParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Save, Download, Upload, Undo, Redo, ZoomIn, ZoomOut, AlertTriangle } from 'lucide-react' // Added AlertTriangle
@@ -7,13 +7,16 @@ import BpmnEditorWithRef from '@/components/BpmnEditorWithRef'
 import PropertiesPanel from '@/components/PropertiesPanel'
 import type { ElementProperties, Process } from '@/types' // Added Process type
 import type { BpmnEditorHandles } from '@/components/BpmnEditor'
-import { processService } from '@/services/processService' // Added processService
-import toast from 'react-hot-toast'; // Added toast
+import { processService } from '@/services/processService'
+import toast from 'react-hot-toast';
 
-const Editor: React.FC = () => {
-  const { id: modelId } = useParams<{ id: string }>() // Renamed id to modelId for clarity
+interface EditorPageProps {
+  modelId?: string; // modelId is the processId
+}
+
+const Editor: React.FC<EditorPageProps> = ({ modelId }) => {
+  // const { id: modelIdFromUrl } = useParams<{ id: string }>() // Removed useParams
   const [selectedElement, setSelectedElement] = useState<ElementProperties | null>(null)
-  // const [modelName, setModelName] = useState(modelId ? `Modelo ${modelId}` : 'Novo Modelo'); // Will be replaced by process.name
   const editorRef = useRef<BpmnEditorHandles>(null)
 
   const [process, setProcess] = useState<Process | null>(null);

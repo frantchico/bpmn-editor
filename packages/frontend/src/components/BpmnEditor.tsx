@@ -85,6 +85,7 @@ const BpmnEditor = React.forwardRef<BpmnEditorHandles, BpmnEditorComponentProps>
 
       try {
         let xmlToLoad: string;
+        let isInitialXmlGenerated = false; // Flag to track if XML was generated
 
         if (processId) {
           const loadedXml = await modelStorage.getModelXmlByProcessId(processId);
@@ -93,10 +94,12 @@ const BpmnEditor = React.forwardRef<BpmnEditorHandles, BpmnEditorComponentProps>
           } else {
             // No XML found in storage, generate initial XML using processName
             xmlToLoad = generateInitialBpmnXml(processName || 'Default Process Name');
+            isInitialXmlGenerated = true;
           }
         } else {
           // No processId provided, use propInitialXml or generate a very basic default
           xmlToLoad = propInitialXml || generateInitialBpmnXml(processName || 'Default Process Name');
+          isInitialXmlGenerated = true; // Also considered generated if no processId and using default
         }
 
         if (modelerRef.current) {
@@ -129,6 +132,10 @@ const BpmnEditor = React.forwardRef<BpmnEditorHandles, BpmnEditorComponentProps>
             await modelerInstance.importXML(xmlToLoad);
             if (!mounted) return;
             setLastSavedXml(xmlToLoad); // Set lastSavedXml after successful import
+
+            if (isInitialXmlGenerated && mounted) {
+              toast.info(`Loaded initial diagram for '${processName || 'Default Process Name'}'.`, { duration: 3000 });
+            }
 
             // Configurar eventos
             const eventBus = modelerInstance.get('eventBus')
