@@ -1,6 +1,6 @@
 import './App.css';
 import Layout from './components/Layout';
-import { Toaster } from 'react-hot-toast'; // Changed to react-hot-toast
+import toast, { Toaster } from 'react-hot-toast'; // Import toast and Toaster
 import { NavigationProvider, useNavigation, NavigationView } from './context/NavigationContext'; // Adjusted import for NavigationView
 
 // Import dashboard components
@@ -8,8 +8,8 @@ import GeneralDashboard from './pages/GeneralDashboard';
 import ProjectDashboard from './components/ProjectDashboard';
 import AreaDashboard from './components/AreaDashboard';
 import SubAreaDashboard from './components/SubAreaDashboard';
-// Placeholder for EditorPage if you add it to ViewType
-// import EditorPage from './pages/Editor';
+import HierarchyManager from './pages/HierarchyManager'; // Added import
+import EditorPage from './pages/Editor'; // Added import
 
 // This component will decide which view to render based on navigation context
 const MainContentRouter: React.FC = () => {
@@ -37,12 +37,16 @@ const MainContentRouter: React.FC = () => {
         return <GeneralDashboard />;
       }
       return <SubAreaDashboard subAreaId={currentView.itemId} />;
-    // case 'editor':
-    //   if (!currentView.itemId) {
-    //     console.error("EditorPage requires an itemId, but it was not provided.", currentView);
-    //     return <GeneralDashboard />;
-    //   }
-    //   return <EditorPage modelId={currentView.itemId} />; // Example
+    case 'hierarchy':
+      return <HierarchyManager />;
+    case 'editor':
+      if (!currentView.itemId) {
+        console.error("EditorPage requires an itemId (processId), but it was not provided.", currentView);
+        toast.error("Cannot open editor: Process ID is missing.");
+        return <GeneralDashboard />; // Or navigate to 'hierarchy'
+      }
+      // Assuming EditorPage takes processId as modelId or similar prop
+      return <EditorPage modelId={currentView.itemId} />;
     case 'general':
     default:
       return <GeneralDashboard />;

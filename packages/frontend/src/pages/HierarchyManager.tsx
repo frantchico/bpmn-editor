@@ -7,10 +7,12 @@ import { ProcessList } from '@/components/ProcessList';
 import { Button } from '@/components/ui/button';
 import { Breadcrumbs } from '@/components/Breadcrumbs';
 import { dataSyncService } from '@/services/dataSyncService';
-import { toast } from 'sonner';
+import toast from 'react-hot-toast'; // Changed to react-hot-toast
 import { Download, Upload } from 'lucide-react';
+import { useNavigation } from '@/context/NavigationContext'; // Added import
 
 export const HierarchyManager: React.FC = () => {
+  const { navigateTo } = useNavigation(); // Added useNavigation
   const [currentView, setCurrentView] = useState<'projects' | 'areas' | 'subareas' | 'processes'>('projects');
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [selectedArea, setSelectedArea] = useState<Area | null>(null);
@@ -33,8 +35,12 @@ export const HierarchyManager: React.FC = () => {
   };
 
   const navigateToEditor = (processId: string) => {
-    console.log(`Navigate to editor for process: ${processId}`);
-    alert(`Navigation to editor for process ${processId} (actual navigation not implemented in this step).`);
+    if (!processId) {
+      console.error("navigateToEditor: processId is missing");
+      toast.error("Cannot navigate to editor: Process ID is missing.");
+      return;
+    }
+    navigateTo({ view: 'editor', itemId: processId });
   };
 
   const handleBreadcrumbNavigation = (

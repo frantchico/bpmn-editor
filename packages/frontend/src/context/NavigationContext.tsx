@@ -1,6 +1,6 @@
 import React, { createContext, useState, useContext, ReactNode } from 'react';
 
-export type ViewType = 'general' | 'project' | 'area' | 'subarea' | 'editor' | 'settings'; // Add more as needed
+export type ViewType = 'general' | 'project' | 'area' | 'subarea' | 'editor' | 'settings' | 'hierarchy';
 
 export interface NavigationView {
   view: ViewType;

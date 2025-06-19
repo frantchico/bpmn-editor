@@ -8,7 +8,7 @@ import { useNavigation } from '@/context/NavigationContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { toast } from 'sonner';
+import toast from 'react-hot-toast'; // Changed to react-hot-toast
 import { Edit3, Trash2, PlusCircle, FileText, AlertTriangle } from 'lucide-react';
 
 interface ProjectDashboardProps {
@@ -66,34 +66,69 @@ const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ projectId }) => {
   }, [projectId, fetchData]);
 
   // Action Handlers
-  const handleEditProject = () => {
-    if (project) {
-      toast.info(`Placeholder: Show form to edit project "${project.name}".`);
-    } else {
-      toast.info('Placeholder: Show form to edit project.');
+  const handleEditProject = async () => {
+    if (!project) {
+      toast.error("Project data not loaded.");
+      return;
+    }
+    const newName = prompt("Enter new project name:", project.name);
+    if (newName && newName.trim() !== project.name) {
+      try {
+        // Assuming projectService.updateProject exists and works as intended
+        // The current projectService in memory might be synchronous.
+        // For this implementation, we'll follow the prompt's async/await structure.
+        await projectService.updateProject(project.id, { name: newName.trim() });
+        toast.success(`Project "${newName.trim()}" updated successfully.`);
+        fetchData(); // Reload data
+      } catch (e: any) {
+        console.error("Error updating project:", e);
+        toast.error(`Failed to update project: ${e.message || String(e)}`);
+      }
     }
   };
-  const handleDeleteProject = () => {
-    if (project) {
-      toast.success(`Project "${project.name}" would be deleted.`, {
-        description: `ID: ${projectId}`,
-        action: {
-          label: 'Undo',
-          onClick: () => console.log('Undo delete (placeholder)'),
-        },
-      });
-    } else {
-      toast.error('Project details not available to simulate deletion.');
+
+  const handleDeleteProject = async () => {
+    if (!project) {
+      toast.error("Project data not loaded.");
+      return;
     }
-    // navigateTo({ view: 'general' }); // Example after actual deletion
-  };
-  const handleCreateArea = () => {
-    if (project) {
-      toast.info(`Placeholder: Show form to create new area for project "${project.name}".`);
-    } else {
-      toast.info('Placeholder: Show form to create new area.');
+    if (window.confirm(`Are you sure you want to delete project "${project.name}" and all its contents?`)) {
+      try {
+        // Assuming projectService.deleteProject returns a boolean or throws an error.
+        const success = await projectService.deleteProject(project.id); // Adapting to async
+        if (success) {
+          toast.success(`Project "${project.name}" deleted successfully.`);
+          navigateTo({ view: 'general' }); // Or 'hierarchy'
+        } else {
+          // This else block might not be reached if deleteProject throws on failure.
+          toast.error("Failed to delete project. It might have been already removed or an error occurred.");
+        }
+      } catch (e: any) {
+        console.error("Error deleting project:", e);
+        toast.error(`Failed to delete project: ${e.message || String(e)}`);
+      }
     }
   };
+
+  const handleCreateArea = async () => {
+    if (!project) {
+      toast.error("Project data not loaded.");
+      return;
+    }
+    const areaName = prompt("Enter name for the new area:");
+    if (areaName && areaName.trim()) {
+      try {
+        // Assuming areaService.createArea exists and works as intended.
+        await areaService.createArea({ name: areaName.trim(), projectId: project.id, description: '' }); // Added description
+        toast.success(`Area "${areaName.trim()}" created successfully in project "${project.name}".`);
+        fetchData(); // Reload data to show new area
+      } catch (e: any) {
+        console.error("Error creating area:", e);
+        toast.error(`Failed to create area: ${e.message || String(e)}`);
+      }
+    }
+  };
+
   const handleViewProjectModels = () => console.log(`TODO: View models for project: ${projectId}`); // Placeholder
 
   const handleViewArea = (areaId: string) => {
