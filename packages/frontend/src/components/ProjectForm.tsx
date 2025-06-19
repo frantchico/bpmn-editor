@@ -21,25 +21,52 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({ project, isOpen, onClo
   const [code, setCode] = useState('');
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState('Planned');
-  const [isSaving, setIsSaving] = useState(false); // Added loading state
+  const [isSaving, setIsSaving] = useState(false);
+  const [isCodeManuallyChanged, setIsCodeManuallyChanged] = useState(false); // Added
+
+  // Helper function for code generation
+  const generateProjectCodeFromName = (name: string): string => {
+    if (!name || name.trim() === '') {
+      return '';
+    }
+    const words = name.trim().split(/\s+/);
+    let generatedCode = '';
+    if (words.length === 1) {
+      generatedCode = words[0].substring(0, 6);
+    } else {
+      generatedCode = (words[0].substring(0, 3) + (words[1]?.substring(0, 3) || ''));
+    }
+    return generatedCode.toUpperCase();
+  };
 
   useEffect(() => {
     if (isOpen) {
-      setIsSaving(false); // Reset saving state when dialog opens
-      if (project) {
+      setIsSaving(false);
+      if (project) { // Editing mode
         setName(project.name);
-        setCode(project.code || ''); // Set code if available
-        setDescription(project.description || ''); // Set description if available
-        setStatus(project.status || 'Planned'); // Set status if available, else default
-      } else {
-        // Reset for new project
+        setCode(project.code || '');
+        setDescription(project.description || '');
+        setStatus(project.status || 'Planned');
+        setIsCodeManuallyChanged(true); // For existing projects, assume code was set and thus "manually changed" or fixed
+      } else { // Creating new project
         setName('');
-        setCode(''); // Code might be auto-generated elsewhere or entered manually
+        setCode('');
         setDescription('');
-        setStatus('Planned'); // Default status for new projects
+        setStatus('Planned');
+        setIsCodeManuallyChanged(false); // Reset for new projects
       }
     }
   }, [project, isOpen]);
+
+  // useEffect for auto-generating code from name for new projects
+  useEffect(() => {
+    if (!project && !isCodeManuallyChanged && name.trim() !== '') {
+      const generated = generateProjectCodeFromName(name);
+      setCode(generated);
+    } else if (!project && name.trim() === '' && !isCodeManuallyChanged) {
+      setCode('');
+    }
+  }, [name, project, isCodeManuallyChanged]); // Removed setCode from deps as it's bad practice
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -112,11 +139,12 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({ project, isOpen, onClo
             <Input
               id="projectCode"
               value={code}
-              onChange={(e) => setCode(e.target.value)}
-              placeholder="e.g., MKT-Q3-2024"
+              onChange={(e) => {
+                setCode(e.target.value);
+                setIsCodeManuallyChanged(true); // Set flag on manual change
+              }}
+              placeholder="e.g., MKT-Q3"
               required
-              // Consider if code should be read-only for existing projects after generation
-              // disabled={!!project} // Example: make code read-only when editing
             />
           </div>
 
