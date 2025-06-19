@@ -1,26 +1,63 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect } from 'react' // Added useEffect
 import { useParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Save, Download, Upload, Undo, Redo, ZoomIn, ZoomOut } from 'lucide-react'
+import { Save, Download, Upload, Undo, Redo, ZoomIn, ZoomOut, AlertTriangle } from 'lucide-react' // Added AlertTriangle
 import BpmnEditorWithRef from '@/components/BpmnEditorWithRef'
 import PropertiesPanel from '@/components/PropertiesPanel'
-import type { ElementProperties } from '@/types'
+import type { ElementProperties, Process } from '@/types' // Added Process type
 import type { BpmnEditorHandles } from '@/components/BpmnEditor'
+import { processService } from '@/services/processService' // Added processService
+import toast from 'react-hot-toast'; // Added toast
 
 const Editor: React.FC = () => {
-  const { id } = useParams<{ id: string }>()
+  const { id: modelId } = useParams<{ id: string }>() // Renamed id to modelId for clarity
   const [selectedElement, setSelectedElement] = useState<ElementProperties | null>(null)
-  const [modelName, setModelName] = useState(id ? `Modelo ${id}` : 'Novo Modelo')
+  // const [modelName, setModelName] = useState(modelId ? `Modelo ${modelId}` : 'Novo Modelo'); // Will be replaced by process.name
   const editorRef = useRef<BpmnEditorHandles>(null)
 
-  const handleSave = (xml: string) => {
-    console.log('Salvando modelo:', xml)
-    // Aqui implementaremos a lógica de salvamento
-  }
+  const [process, setProcess] = useState<Process | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (modelId) {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const fetchedProcess = processService.getProcess(modelId);
+        if (fetchedProcess) {
+          setProcess(fetchedProcess);
+        } else {
+          setError(`Process with ID "${modelId}" not found.`);
+          toast.error(`Process with ID "${modelId}" not found.`);
+        }
+      } catch (e: any) {
+        console.error("Error fetching process data:", e);
+        setError(`Failed to load process data: ${e.message || String(e)}`);
+        toast.error(`Failed to load process data: ${e.message || String(e)}`);
+      } finally {
+        setIsLoading(false);
+      }
+    } else {
+      setError("No Process ID provided in the URL.");
+      toast.error("No Process ID provided in the URL.");
+      setIsLoading(false);
+    }
+  }, [modelId]);
+
+
+  // The handleSave in BpmnEditor now handles the actual saving via modelStorage.
+  // This handleSave can be kept if Editor page needs to do something extra after BpmnEditor's onSave.
+  const handleSavePropFromEditor = (xml: string) => {
+    console.log('EditorPage: BpmnEditor onSave triggered. XML:', xml);
+    // Potentially refresh related data or show additional notifications if needed.
+    // The main save notification (success/failure) is handled within BpmnEditor.
+  };
 
   const handleExport = (data: string, format: 'bpmn' | 'svg' | 'png') => {
     console.log('Exportando como:', format)
+    const fileName = process?.name || modelId || 'model';
     
     // Criar download do arquivo
     const blob = new Blob([data], { 
@@ -29,7 +66,7 @@ const Editor: React.FC = () => {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `${modelName.toLowerCase().replace(/\s+/g, '-')}.${format}`
+    a.download = `${fileName.toLowerCase().replace(/\s+/g, '-')}.${format}`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
@@ -84,7 +121,10 @@ const Editor: React.FC = () => {
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <h2 className="text-lg font-semibold">Editor BPMN</h2>
-            <span className="text-sm text-gray-500">- {modelName}</span>
+            {isLoading && <span className="text-sm text-gray-500">- Loading process name...</span>}
+            {error && <span className="text-sm text-red-500">- Error loading name</span>}
+            {process && <span className="text-sm text-gray-500">- {process.name}</span>}
+            {!process && !isLoading && !error && <span className="text-sm text-gray-500">- Untitled Process</span>}
           </div>
           
           <div className="flex items-center space-x-2">
@@ -127,17 +167,32 @@ const Editor: React.FC = () => {
       <div className="flex-1 flex">
         {/* Canvas Principal */}
         <div className="flex-1 bg-gray-50">
-          <Card className="h-full m-4">
-            <CardContent className="h-full p-0">
-              <BpmnEditorWithRef
-                ref={editorRef}
-                modelId={id}
-                onSave={handleSave}
-                onExport={handleExport}
-                onElementSelect={handleElementSelect}
-              />
-            </CardContent>
-          </Card>
+          {isLoading && (
+            <div className="flex items-center justify-center h-full">Loading editor...</div>
+          )}
+          {error && (
+            <div className="flex flex-col items-center justify-center h-full p-4 text-red-600">
+              <AlertTriangle className="h-8 w-8 mb-2" />
+              <p>{error}</p>
+              <p>Please check the process ID or try again later.</p>
+            </div>
+          )}
+          {!isLoading && !error && modelId && (
+            <Card className="h-full m-4">
+              <CardContent className="h-full p-0">
+                <BpmnEditorWithRef
+                  ref={editorRef}
+                  processId={modelId} // Pass modelId as processId
+                  processName={process?.name} // Pass fetched process name
+                  onSave={handleSavePropFromEditor} // Use the renamed handler
+                  onExport={handleExport}
+                  onElementSelect={handleElementSelect}
+                  // Assuming BpmnEditorWithRef is a wrapper around the MemoizedBpmnEditor or similar
+                  // and correctly passes these props down.
+                />
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Painel de Propriedades */}

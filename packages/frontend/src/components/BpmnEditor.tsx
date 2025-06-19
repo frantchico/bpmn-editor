@@ -17,32 +17,47 @@ export interface BpmnEditorHandles {
   // fitViewport: () => void;
 }
 
-// BPMN XML básico para inicializar o editor
-const initialBpmnXml = `<?xml version="1.0" encoding="UTF-8"?>
-<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" id="Definitions_1" targetNamespace="http://bpmn.io/schema/bpmn" exporter="bpmn-js" exporterVersion="18.6.2">
-  <bpmn:process id="Process_1" isExecutable="false">
+const generateInitialBpmnXml = (name: string): string => {
+  // Sanitize 'name' to prevent XML injection if it comes from user input directly
+  // For simplicity here, we assume 'name' is controlled.
+  const safeName = name.replace(/[<>&'"]/g, (c) => {
+    switch (c) {
+      case '<': return '&lt;';
+      case '>': return '&gt;';
+      case '&': return '&amp;';
+      case '\'': return '&apos;';
+      case '"': return '&quot;';
+      default: return c;
+    }
+  });
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" id="Definitions_1" targetNamespace="http://bpmn.io/schema/bpmn">
+  <bpmn:process id="Process_Initial" name="${safeName}" isExecutable="false">
     <bpmn:startEvent id="StartEvent_1" />
   </bpmn:process>
   <bpmndi:BPMNDiagram id="BPMNDiagram_1">
-    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Process_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Process_Initial">
       <bpmndi:BPMNShape id="_BPMNShape_StartEvent_2" bpmnElement="StartEvent_1">
         <dc:Bounds x="173" y="102" width="36" height="36" />
       </bpmndi:BPMNShape>
     </bpmndi:BPMNPlane>
   </bpmndi:BPMNDiagram>
-</bpmn:definitions>`
+</bpmn:definitions>`;
+};
 
 export interface BpmnEditorComponentProps extends BpmnEditorProps {
-  processId: string; // Added processId prop
+  processId: string;
+  processName?: string; // Added processName prop
   onElementSelect?: (element: ElementProperties | null) => void
 }
 
 const BpmnEditor = React.forwardRef<BpmnEditorHandles, BpmnEditorComponentProps>(
   (props, ref) => {
     const {
-      processId, // Destructure processId
+      processId,
+      processName, // Destructure processName
       modelId,
-      initialXml: propInitialXml, // Rename to avoid conflict, use existing default for initialBpmnXml
+      initialXml: propInitialXml,
       onSave,
       onExport,
       onElementSelect
@@ -69,21 +84,19 @@ const BpmnEditor = React.forwardRef<BpmnEditorHandles, BpmnEditorComponentProps>
       setError(null);
 
       try {
-        let xmlToLoad = propInitialXml || initialBpmnXml; // Default to prop or global default
+        let xmlToLoad: string;
 
         if (processId) {
-          // console.log(`BpmnEditor: Loading XML for processId: ${processId}`);
           const loadedXml = await modelStorage.getModelXmlByProcessId(processId);
           if (loadedXml) {
             xmlToLoad = loadedXml;
-            // console.log(`BpmnEditor: XML found for processId: ${processId}`);
           } else {
-            // console.log(`BpmnEditor: No XML found for processId: ${processId}, using default/prop initial XML.`);
-            // If no XML in storage for processId, use the initialBpmnXml as the base for a new model.
-            xmlToLoad = initialBpmnXml;
+            // No XML found in storage, generate initial XML using processName
+            xmlToLoad = generateInitialBpmnXml(processName || 'Default Process Name');
           }
         } else {
-          // console.log("BpmnEditor: No processId provided, using default/prop initial XML.");
+          // No processId provided, use propInitialXml or generate a very basic default
+          xmlToLoad = propInitialXml || generateInitialBpmnXml(processName || 'Default Process Name');
         }
 
         if (modelerRef.current) {
