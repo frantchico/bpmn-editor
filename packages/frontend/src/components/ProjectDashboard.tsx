@@ -133,21 +133,26 @@ const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ projectId }) => {
     setIsAreaFormOpen(true);
   };
 
-  const handleAreaFormSave = async (areaData: Pick<Area, 'name' | 'description'>) => {
-    if (!project) {
+  // Updated to accept the full Area data (Omit 'id') from AreaForm
+  const handleAreaFormSave = async (areaData: Omit<Area, 'id'>) => {
+    if (!project) { // project here is the currently viewed project in the dashboard
       toast.error("Project context is missing for creating an area.");
       return false;
     }
-    console.log('[ProjectDashboard] handleAreaFormSave - Creating area with name:', areaData.name, 'under projectId:', project.id);
+    // The areaData from AreaForm should now contain all necessary fields including projectId.
+    // We ensure the projectId in areaData matches the current project dashboard's context,
+    // though AreaForm should already be setting this correctly using the projectId prop.
+    if (areaData.projectId !== project.id) {
+        toast.error("Area data has an inconsistent projectId. Cannot save.");
+        console.error("Mismatched projectId:", { formProjectId: areaData.projectId, dashboardProjectId: project.id });
+        return false;
+    }
+
+    console.log('[ProjectDashboard] handleAreaFormSave - Creating area with data from form:', areaData);
     try {
-      // Ensure areaData from form is correctly structured.
-      // AreaForm (when creating) should provide 'name' and 'description'.
-      // 'projectId' is added here from the ProjectDashboard's context.
-      await areaService.createArea({
-        name: areaData.name,
-        description: areaData.description || '', // Ensure description is at least an empty string
-        projectId: project.id
-      });
+      // Pass the full areaData from form, which includes name, code, description, status, projectId
+      await areaService.createArea(areaData);
+
       toast.success(`Area "${areaData.name}" created successfully.`);
       fetchData(); // Refresh areas list
       setIsAreaFormOpen(false);

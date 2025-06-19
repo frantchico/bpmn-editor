@@ -35,23 +35,41 @@ export const processService = {
     return processService.getProcesses().find(p => p.id === id);
   },
 
-  createProcess: (processData: Pick<Process, 'name' | 'subAreaId'>): Process => {
-    const { name, subAreaId } = processData;
-    const trimmedName = name.trim();
-    if (!trimmedName) {
-      throw new Error("Process name cannot be empty.");
-    }
+  createProcess: (processData: Omit<Process, 'id'>): Process => {
+    // Safely access and trim name and code
+    const trimmedName = (processData.name || '').trim();
+    const trimmedCode = (processData.code || '').trim();
+    // Destructure other required fields for validation after initial access
+    const { subAreaId, projectId } = processData;
+
+    if (!trimmedName) throw new Error("Process name cannot be empty.");
+    if (!trimmedCode) throw new Error("Process code cannot be empty.");
+    if (!subAreaId) throw new Error("SubArea ID is required to create a process.");
+    if (!projectId) throw new Error("Project ID is required to create a process.");
+    // Optional: Validate model, version, status, description if needed, though form provides defaults.
+
     const allProcesses = getStoredItems<Process>(PROCESSES_KEY);
     const parentSubAreaProcesses = allProcesses.filter(p => p.subAreaId === subAreaId);
-    if (parentSubAreaProcesses.some(p => p.name.toLowerCase() === trimmedName.toLowerCase())) {
+
+    if (parentSubAreaProcesses.some(p => p.name && p.name.toLowerCase() === trimmedName.toLowerCase())) {
       throw new Error(`A process with the name "${trimmedName}" already exists in this sub-area.`);
     }
-    const newProcess: Process = { id: generateId(), name: trimmedName, subAreaId };
+    if (parentSubAreaProcesses.some(p => p.code && p.code.toLowerCase() === trimmedCode.toLowerCase())) {
+      throw new Error(`A process with the code "${trimmedCode}" already exists in this sub-area.`);
+    }
+
+    const newProcess: Process = {
+      ...processData,
+      id: generateId(),
+      name: trimmedName,
+      code: trimmedCode,
+      // description, status, model, version, updatedAt, projectId are spread from processData
+    };
     setStoredItems<Process>(PROCESSES_KEY, [...allProcesses, newProcess]);
     return newProcess;
   },
 
-  updateProcess: (id: string, updates: Partial<Pick<Process, 'name' /* | 'subAreaId' */>>): Process => {
+  updateProcess: (id: string, updates: Partial<Omit<Process, 'id' | 'subAreaId' | 'projectId'>>): Process => {
     let allProcesses = getStoredItems<Process>(PROCESSES_KEY);
     const processIndex = allProcesses.findIndex(p => p.id === id);
 
@@ -60,25 +78,43 @@ export const processService = {
     }
 
     const currentProcess = allProcesses[processIndex];
-    let newTrimmedName = currentProcess.name;
+    const newName = updates.name?.trim();
+    const newCode = updates.code?.trim();
 
-    if (updates.name !== undefined) {
-        newTrimmedName = updates.name.trim();
-        if (!newTrimmedName) {
-            throw new Error("Process name cannot be empty.");
-        }
-        if (newTrimmedName.toLowerCase() !== currentProcess.name.toLowerCase()) {
-            const parentSubAreaProcesses = allProcesses.filter(p => p.subAreaId === currentProcess.subAreaId);
-            if (parentSubAreaProcesses.some(p => p.id !== id && p.name.toLowerCase() === newTrimmedName.toLowerCase())) {
-                throw new Error(`Another process with the name "${newTrimmedName}" already exists in this sub-area.`);
-            }
-        }
+    if (newName === '') throw new Error("Process name cannot be empty.");
+    if (newCode === '') throw new Error("Process code cannot be empty.");
+
+    const currentProcessNameLower = (currentProcess.name || '').toLowerCase();
+    const currentProcessCodeLower = (currentProcess.code || '').toLowerCase();
+
+    if (newName && newName.toLowerCase() !== currentProcessNameLower) {
+      const parentSubAreaProcesses = allProcesses.filter(p => p.subAreaId === currentProcess.subAreaId);
+      if (parentSubAreaProcesses.some(p => p.id !== id && p.name && p.name.toLowerCase() === newName.toLowerCase())) {
+        throw new Error(`Another process with the name "${newName}" already exists in this sub-area.`);
+      }
+    }
+    if (newCode && newCode.toLowerCase() !== currentProcessCodeLower) {
+      const parentSubAreaProcesses = allProcesses.filter(p => p.subAreaId === currentProcess.subAreaId);
+      if (parentSubAreaProcesses.some(p => p.id !== id && p.code && p.code.toLowerCase() === newCode.toLowerCase())) {
+        throw new Error(`Another process with the code "${newCode}" already exists in this sub-area.`);
+      }
     }
 
-    const updatedProcess = { ...currentProcess, name: newTrimmedName };
+    const updatedProcessData = { ...currentProcess, ...updates };
+    if (newName) updatedProcessData.name = newName;
+    if (newCode) updatedProcessData.code = newCode;
+    // description, status, model, version, updatedAt are spread from updates
+    // subAreaId and projectId are not changed here.
+
+    const updatedProcess = { ...updatedProcessData };
     allProcesses[processIndex] = updatedProcess;
     setStoredItems<Process>(PROCESSES_KEY, allProcesses);
     return updatedProcess;
+  },
+
+  // getProcessById is an alias for getProcess
+  getProcessById: (id: string): Process | undefined => {
+    return processService.getProcess(id);
   },
 
   deleteProcess: (id: string): boolean => {

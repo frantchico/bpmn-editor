@@ -43,32 +43,40 @@ export const projectService = {
     return projectService.getProjects().find(p => p.id === id);
   },
 
-  createProject: (projectData: Pick<Project, 'name'>): Project => {
+  createProject: (projectData: Omit<Project, 'id' | 'createdAt' | 'updatedAt'>): Project => {
     console.log('[projectService] createProject - projectData:', projectData);
     const projects = projectService.getProjects();
-    const trimmedName = projectData.name.trim();
 
-    if (!trimmedName) {
-      throw new Error("Project name cannot be empty.");
-    }
-    if (projects.some(p => p.name.toLowerCase() === trimmedName.toLowerCase())) {
+    // Safer trim
+    const trimmedName = (projectData.name || '').trim();
+    const trimmedCode = (projectData.code || '').trim();
+
+    if (!trimmedName) throw new Error("Project name cannot be empty.");
+    if (!trimmedCode) throw new Error("Project code cannot be empty.");
+
+    if (projects.some(p => p.name && p.name.toLowerCase() === trimmedName.toLowerCase())) {
       throw new Error(`A project with the name "${trimmedName}" already exists.`);
+    }
+    if (projects.some(p => p.code && p.code.toLowerCase() === trimmedCode.toLowerCase())) {
+      throw new Error(`A project with the code "${trimmedCode}" already exists.`);
     }
 
     const newProject: Project = {
       id: generateId(),
       name: trimmedName,
+      code: trimmedCode,
+      description: projectData.description || '', // Provide default if not present
+      status: projectData.status || 'Planned',   // Provide default if not present
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
     console.log('[projectService] Saving projects to localStorage. New project:', newProject, 'All projects:', [...projects, newProject]);
     setStoredItems<Project>(PROJECTS_KEY, [...projects, newProject]);
-    // Note: The log for "Successfully called setStoredItems" is now inside setStoredItems itself.
     console.log('[projectService] Returning new project:', newProject);
     return newProject;
   },
 
-  updateProject: (id: string, updates: Partial<Pick<Project, 'name'>>): Project => { // Return Project, throw if not found
+  updateProject: (id: string, updates: Partial<Omit<Project, 'id' | 'createdAt' | 'updatedAt'>>): Project => {
     let projects = projectService.getProjects();
     const projectIndex = projects.findIndex(p => p.id === id);
 
@@ -77,27 +85,47 @@ export const projectService = {
     }
 
     const currentProject = projects[projectIndex];
-    const newTrimmedName = updates.name ? updates.name.trim() : currentProject.name;
 
-    if (updates.name && !newTrimmedName) {
-      throw new Error("Project name cannot be empty.");
+    // Prepare new values, trimming if they are strings and provided in updates
+    const newName = updates.name?.trim();
+    const newCode = updates.code?.trim();
+
+    if (newName === '') throw new Error("Project name cannot be empty.");
+    if (newCode === '') throw new Error("Project code cannot be empty.");
+
+    const currentProjectNameLower = (currentProject.name || '').toLowerCase(); // Safe access for current project
+    const currentProjectCodeLower = (currentProject.code || '').toLowerCase();   // Safe access for current project
+
+    // Check for duplicate name if name is changing
+    if (newName && newName.toLowerCase() !== currentProjectNameLower) {
+      if (projects.some(p => p.id !== id && p.name && p.name.toLowerCase() === newName.toLowerCase())) { // Safe access for other projects
+        throw new Error(`Another project with the name "${newName}" already exists.`);
+      }
     }
-
-    // Only check for duplicate names if the name is actually changing
-    if (updates.name && newTrimmedName.toLowerCase() !== currentProject.name.toLowerCase()) {
-      if (projects.some(p => p.id !== id && p.name.toLowerCase() === newTrimmedName.toLowerCase())) {
-        throw new Error(`Another project with the name "${newTrimmedName}" already exists.`);
+    // Check for duplicate code if code is changing
+    if (newCode && newCode.toLowerCase() !== currentProjectCodeLower) {
+      if (projects.some(p => p.id !== id && p.code && p.code.toLowerCase() === newCode.toLowerCase())) { // Safe access for other projects
+        throw new Error(`Another project with the code "${newCode}" already exists.`);
       }
     }
 
+    const updatedProjectData = { ...currentProject, ...updates };
+    if (newName) updatedProjectData.name = newName;
+    if (newCode) updatedProjectData.code = newCode;
+    // description and status can be partial, so they are spread from updates directly
+
     const updatedProject = {
-      ...currentProject,
-      name: newTrimmedName,
+      ...updatedProjectData,
       updatedAt: new Date().toISOString(),
     };
     projects[projectIndex] = updatedProject;
     setStoredItems<Project>(PROJECTS_KEY, projects);
     return updatedProject;
+  },
+
+  // getProjectById is an alias for getProject
+  getProjectById: (id: string): Project | undefined => {
+    return projectService.getProject(id);
   },
 
   deleteProject: (id: string): boolean => {
