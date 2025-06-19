@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { generateSubAreaCode } from '@/lib/codeGenerator';
 import { areaService } from '@/services/areaService';
 import { subAreaService } from '@/services/subAreaService';
-import { toast } from 'sonner'; // Added
+import toast from 'react-hot-toast'; // Added
 
 interface SubAreaFormProps {
   subArea?: SubArea | null;
@@ -82,7 +82,11 @@ export const SubAreaForm: React.FC<SubAreaFormProps> = ({ subArea, areaId, proje
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('[SubAreaForm] handleSubmit called. Name:', name, 'Code:', code, 'areaId prop:', areaId, 'projectId prop:', projectId, 'subArea prop:', subArea);
+
+    console.log('[SubAreaForm] Validating name and code...');
     if (!name.trim() || !code.trim()) {
+      console.log('[SubAreaForm] Name or code is missing.');
       toast.error('SubArea name and code are required.');
       return;
     }
@@ -90,7 +94,9 @@ export const SubAreaForm: React.FC<SubAreaFormProps> = ({ subArea, areaId, proje
     // Crucial: Ensure projectId is correctly passed for new SubAreas.
     // If editing, subArea.projectId is used. If creating, the projectId prop (passed from parent context) is used.
     const currentProjectId = subArea ? subArea.projectId : projectId;
+    console.log('[SubAreaForm] Validating currentProjectId for new subArea. currentProjectId:', currentProjectId);
     if (!currentProjectId && !subArea) {
+        console.log('[SubAreaForm] currentProjectId is missing for a new subArea.');
         toast.error('Project ID is missing for the new SubArea. Cannot save.');
         return;
     }
@@ -107,18 +113,22 @@ export const SubAreaForm: React.FC<SubAreaFormProps> = ({ subArea, areaId, proje
 
     try {
       if (subArea) {
+        console.log('[SubAreaForm] Calling onSave for update. Data:', { ...subAreaDataToSave, id: subArea.id });
         await onSave({ ...subAreaDataToSave, id: subArea.id });
         toast.success(`SubArea '${name}' updated successfully!`);
       } else if (areaId && currentProjectId) {
+        console.log('[SubAreaForm] Calling onSave for create. Data:', subAreaDataToSave);
         await onSave(subAreaDataToSave);
         toast.success(`SubArea '${name}' created successfully!`);
       } else {
+        console.log('[SubAreaForm] Missing areaId or currentProjectId for create.');
         toast.error('Area ID or Project ID is missing. Cannot save sub-area.');
         setIsSaving(false);
         return;
       }
       onClose(); // Close dialog on success
     } catch (error: any) {
+      console.error('[SubAreaForm] Error during onSave call:', error);
       console.error("Failed to save sub-area:", error);
       toast.error(`Failed to save sub-area: ${error.message}`);
     } finally {
