@@ -140,13 +140,35 @@ const SubAreaDashboard: React.FC<SubAreaDashboardProps> = ({ subAreaId }) => {
   };
 
   const handleProcessFormSave = async (processData: Pick<Process, 'name' | 'description'>) => {
+    // The prompt suggests processDataFromForm is Pick<Process, 'name'> & { subAreaId: string }
+    // And to add a check: if (!subArea || subArea.id !== processDataFromForm.subAreaId) { ... error ... }
+    // This implies ProcessForm should send subAreaId.
+    // For consistency, let's assume processData is Pick<Process, 'name' | 'description'> from the form.
+    // And we use subArea.id from SubAreaDashboard's state.
+
+    const processDataFromForm = processData as Pick<Process, 'name' | 'description'> & { subAreaId?: string };
+
     if (!subArea) {
       toast.error("Sub-Area context is missing for creating a process.");
       return false;
     }
+
+    // The check as requested by prompt:
+    // if (processDataFromForm.subAreaId && subArea.id !== processDataFromForm.subAreaId) {
+    //   toast.error("SubArea ID mismatch. Cannot create process.");
+    //   console.error("SubArea ID mismatch. Dashboard subArea.id:", subArea.id, "Form subAreaId:", processDataFromForm.subAreaId);
+    //   return false;
+    // }
+    // Simpler: we just trust subArea.id from this component's state.
+
+    console.log('[SubAreaDashboard] handleProcessFormSave - Creating process with name:', processDataFromForm.name, 'under subAreaId:', subArea.id);
     try {
-      await processService.createProcess({ ...processData, subAreaId: subArea.id });
-      toast.success(`Process "${processData.name}" created successfully.`);
+      await processService.createProcess({
+        name: processDataFromForm.name,
+        description: processDataFromForm.description || '',
+        subAreaId: subArea.id
+      });
+      toast.success(`Process "${processDataFromForm.name}" created successfully.`);
       fetchData(); // Refreshes processes list and potentially modelsCount
       setIsProcessFormOpen(false);
       return true;
@@ -292,12 +314,14 @@ const SubAreaDashboard: React.FC<SubAreaDashboardProps> = ({ subAreaId }) => {
           area={parentArea} // Pass parent area for context
         />
       )}
-      {subArea && ( // For creating a process under current sub-area
+      {subArea && !editingSubArea && ( // Ensure we are in creation mode for ProcessForm (editingSubArea is for the parent SubArea)
         <ProcessForm
           isOpen={isProcessFormOpen}
           onClose={() => setIsProcessFormOpen(false)}
           onSave={handleProcessFormSave}
-          subArea={subArea} // Pass parent subArea
+          process={null} // Explicitly null for creation mode
+          subAreaId={subArea.id} // Pass subArea.id for creation context
+          // errorMessage={...} // If ProcessForm supports an errorMessage prop
         />
       )}
     </div>

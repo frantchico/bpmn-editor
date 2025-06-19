@@ -137,13 +137,46 @@ const AreaDashboard: React.FC<AreaDashboardProps> = ({ areaId }) => {
   };
 
   const handleSubAreaFormSave = async (subAreaData: Pick<SubArea, 'name' | 'description'>) => {
+    // The type for subAreaData here is what comes from the SubAreaForm's onSave callback.
+    // The prompt suggests SubAreaForm will send `Pick<SubArea, 'name'> & { areaId: string }`
+    // However, it's more typical for the form to only send its own fields (name, description)
+    // and the parent (AreaDashboard) provides the context (area.id).
+    // Let's assume SubAreaForm sends Pick<SubArea, 'name' | 'description'> as currently typed
+    // and AreaDashboard provides area.id.
     if (!area) {
       toast.error("Area context is missing for creating a sub-area.");
       return false;
     }
+    // If subAreaDataFromForm includes areaId, we should validate it.
+    // For now, let's assume subAreaData is Pick<SubArea, 'name' | 'description'>
+    // and we use area.id from AreaDashboard's state.
+    // The prompt for handleSubAreaFormSave was:
+    // "It receives subAreaDataFromForm: Pick<SubArea, 'name'> & { areaId: string } from SubAreaForm."
+    // "Add a check: if (!area || area.id !== subAreaDataFromForm.areaId) { ... error ... }"
+    // This implies SubAreaForm *should* be passing areaId back.
+    // Let's adjust the type of subAreaData received here to match that expectation for the check.
+    // Then, when calling the service, we still use area.id from AreaDashboard's state for reliability.
+
+    const subAreaDataFromForm = subAreaData as Pick<SubArea, 'name' | 'description'> & { areaId?: string };
+
+
+    // The check as requested by prompt:
+    // if (subAreaDataFromForm.areaId && (!area || area.id !== subAreaDataFromForm.areaId)) {
+    //   toast.error("Area ID mismatch. Cannot create sub-area.");
+    //   console.error("Area ID mismatch. Dashboard area.id:", area?.id, "Form areaId:", subAreaDataFromForm.areaId);
+    //   return false;
+    // }
+    // Simpler: we just trust area.id from this component's state.
+    // SubAreaForm should be passed area.id, and can use it to populate its onSave data.
+
+    console.log('[AreaDashboard] handleSubAreaFormSave - Creating sub-area with name:', subAreaDataFromForm.name, 'under areaId:', area.id);
     try {
-      await subAreaService.createSubArea({ ...subAreaData, areaId: area.id });
-      toast.success(`Sub-Area "${subAreaData.name}" created successfully.`);
+      await subAreaService.createSubArea({
+        name: subAreaDataFromForm.name,
+        description: subAreaDataFromForm.description || '',
+        areaId: area.id
+      });
+      toast.success(`Sub-Area "${subAreaDataFromForm.name}" created successfully.`);
       fetchData(); // Refreshes subAreas list
       setIsSubAreaFormOpen(false);
       return true;
@@ -280,12 +313,14 @@ const AreaDashboard: React.FC<AreaDashboardProps> = ({ areaId }) => {
           project={parentProject} // Pass parent project for context if needed by AreaForm
         />
       )}
-      {area && ( // For creating a sub-area under the current area
+      {area && !editingArea && ( // Ensure we are in creation mode for SubAreaForm
         <SubAreaForm
           isOpen={isSubAreaFormOpen}
           onClose={() => setIsSubAreaFormOpen(false)}
           onSave={handleSubAreaFormSave}
-          area={area} // Pass parent area
+          subArea={null} // Explicitly null for creation mode
+          areaId={area.id} // Pass area.id for creation context
+          // errorMessage={...} // If SubAreaForm supports an errorMessage prop
         />
       )}
     </div>

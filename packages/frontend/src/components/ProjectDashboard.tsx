@@ -138,8 +138,16 @@ const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ projectId }) => {
       toast.error("Project context is missing for creating an area.");
       return false;
     }
+    console.log('[ProjectDashboard] handleAreaFormSave - Creating area with name:', areaData.name, 'under projectId:', project.id);
     try {
-      await areaService.createArea({ ...areaData, projectId: project.id });
+      // Ensure areaData from form is correctly structured.
+      // AreaForm (when creating) should provide 'name' and 'description'.
+      // 'projectId' is added here from the ProjectDashboard's context.
+      await areaService.createArea({
+        name: areaData.name,
+        description: areaData.description || '', // Ensure description is at least an empty string
+        projectId: project.id
+      });
       toast.success(`Area "${areaData.name}" created successfully.`);
       fetchData(); // Refresh areas list
       setIsAreaFormOpen(false);
@@ -263,13 +271,15 @@ const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ projectId }) => {
           project={editingProject}
         />
       )}
-      {project && ( // Ensure project context exists for creating an area under it
+      {project && !editingProject && ( // Ensure project context exists AND we are not editing an area (which would use a different form instance or logic)
         <AreaForm
           isOpen={isAreaFormOpen}
           onClose={() => setIsAreaFormOpen(false)}
           onSave={handleAreaFormSave}
-          project={project} // Pass the parent project
-          // area={null} // Assuming AreaForm handles create (null area) vs edit (area object)
+          area={null} // Explicitly null for creation mode
+          projectId={project.id} // Pass projectId for creation context
+          // Pass project name for display purposes in AreaForm if needed, e.g., parentProjectName={project.name}
+          // errorMessage={...} // If AreaForm has its own error message state to be displayed from here
         />
       )}
     </div>
