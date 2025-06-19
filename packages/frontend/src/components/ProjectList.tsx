@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { MoreHorizontal } from 'lucide-react';
-import { toast } from 'sonner';
+import toast from 'react-hot-toast'; // Changed to react-hot-toast
 
 interface ProjectListProps {
   onNavigateToProjectAreas: (project: Project) => void;
@@ -20,7 +20,9 @@ export const ProjectList: React.FC<ProjectListProps> = ({ onNavigateToProjectAre
   const [formErrorMessage, setFormErrorMessage] = useState<string | null>(null); // New state
 
   const loadProjects = () => {
-    setProjects(projectService.getProjects());
+    const projectsFromService = projectService.getProjects();
+    console.log('[ProjectList] loadProjects - projects from service:', projectsFromService);
+    setProjects(projectsFromService);
   };
 
   useEffect(() => {
@@ -28,25 +30,31 @@ export const ProjectList: React.FC<ProjectListProps> = ({ onNavigateToProjectAre
   }, []);
 
   const handleSaveProject = (projectData: Pick<Project, 'name'> | (Pick<Project, 'name'> & { id: string })) => {
+    console.log('[ProjectList] handleSaveProject - projectData:', projectData);
     setFormErrorMessage(null); // Clear previous errors before attempting to save
     try {
       let savedProject: Project | undefined;
       if ('id' in projectData) { // Editing existing project
+        // Add specific logging for update if needed, current focus is creation
         savedProject = projectService.updateProject(projectData.id, { name: projectData.name });
-        // updateProject now throws if not found or validation error
         toast.success(`Project "${savedProject.name}" updated successfully.`);
       } else { // Creating new project
+        console.log('[ProjectList] Attempting to create project with name:', projectData.name);
         savedProject = projectService.createProject({ name: projectData.name });
+        console.log('[ProjectList] Project created successfully by service:', savedProject);
         toast.success(`Project "${savedProject.name}" created successfully.`);
       }
 
+      console.log('[ProjectList] Calling loadProjects after save.');
       loadProjects(); // Refresh list
+      console.log('[ProjectList] Closing form after successful save.');
       setIsFormOpen(false); // Close form ONLY on success
       setEditingProject(null);
-    } catch (error) {
-      console.error("Error saving project:", error);
+    } catch (error: any) { // Explicitly type error as any or unknown for stringify
+      console.error('[ProjectList] Error in handleSaveProject:', error, 'Raw error object:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
       const message = error instanceof Error ? error.message : "An unknown error occurred while saving the project.";
       toast.error(`Failed to save project: ${message}`);
+      console.log('[ProjectList] Setting form error message:', message);
       setFormErrorMessage(message); // Set error message to display in the form
       // Do NOT close the form here, so user can see the error and correct it.
     }

@@ -228,7 +228,7 @@ const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ projectId }) => {
           <div className="flex flex-wrap gap-2 pt-2">
             <Button variant="outline" onClick={handleEditProject}><Edit3 className="mr-2 h-4 w-4"/> Edit Project</Button>
             <Button variant="destructive" onClick={handleDeleteProject}><Trash2 className="mr-2 h-4 w-4"/> Delete Project</Button>
-            <Button onClick={handleCreateArea}><PlusCircle className="mr-2 h-4 w-4"/> Create New Area</Button>
+            {/* Removed general "Create New Area" button from here */}
             <Button variant="secondary" onClick={handleViewProjectModels}><FileText className="mr-2 h-4 w-4"/> View Models ({modelsCount})</Button>
           </div>
         </CardContent>

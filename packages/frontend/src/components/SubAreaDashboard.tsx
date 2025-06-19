@@ -256,7 +256,7 @@ const SubAreaDashboard: React.FC<SubAreaDashboardProps> = ({ subAreaId }) => {
           <div className="flex flex-wrap gap-2 pt-2">
             <Button variant="outline" onClick={handleEditSubArea}><Edit3 className="mr-2 h-4 w-4"/> Edit Sub-Area</Button>
             <Button variant="destructive" onClick={handleDeleteSubArea}><Trash2 className="mr-2 h-4 w-4"/> Delete Sub-Area</Button>
-            <Button onClick={handleCreateProcess}><PlusCircle className="mr-2 h-4 w-4"/> Create New Process</Button>
+            {/* Removed general "Create New Process" button from here */}
             <Button variant="secondary" onClick={handleViewSubAreaModels}><FileText className="mr-2 h-4 w-4"/> View Models ({modelsCount})</Button>
           </div>
         </CardContent>
