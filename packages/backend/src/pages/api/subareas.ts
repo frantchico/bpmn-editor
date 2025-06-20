@@ -3,7 +3,16 @@ import fs from 'fs/promises';
 import path from 'path';
 import runMiddleware from '@/lib/cors';
 import Cors from 'cors';
-type SubArea = { id: string; name: string; areaId: string; };
+
+type SubArea = {
+  id: string;
+  code: string;
+  name: string;
+  description: string;
+  status: string;
+  areaId: string;
+  projectId: string;
+};
 
 const subareasFilePath = path.join(process.cwd(), 'data', 'subareas.json');
 

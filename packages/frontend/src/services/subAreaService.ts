@@ -2,10 +2,15 @@ import { SubArea, Process, BpmnModel } from '@/types';
 import { generateId } from '@/lib/utils';
 import { modelStorage } from './modelStorage';
 import { processService } from './processService';
+import { areaService } from './areaService';
 
 const SUBAREAS_KEY = 'wfstudio_subareas';
 const PROCESSES_KEY = 'wfstudio_processes';
 // BPMN_MODELS_KEY_PREFIX is not used directly here
+
+const dispatchDataChangedEvent = () => {
+  document.dispatchEvent(new CustomEvent('dataChanged'));
+};
 
 const getStoredItems = <T>(key: string): T[] => {
   if (typeof window === 'undefined') return [];
@@ -37,23 +42,42 @@ export const subAreaService = {
     return subAreaService.getSubAreas().find(sa => sa.id === id);
   },
 
-  createSubArea: (subAreaData: Pick<SubArea, 'name' | 'areaId'>): SubArea => {
-    const { name, areaId } = subAreaData;
-    const trimmedName = name.trim();
-    if (!trimmedName) {
-      throw new Error("SubArea name cannot be empty.");
-    }
+  createSubArea: (subAreaData: Omit<SubArea, 'id'>): SubArea => {
+    // projectId is no longer part of subAreaData due to type changes
+    const { name, code, areaId, description, status } = subAreaData;
+    const trimmedName = (name || '').trim(); // Default to empty string if name is null/undefined
+    const trimmedCode = (code || '').trim(); // Default to empty string if code is null/undefined
+
+    if (!trimmedName) throw new Error("SubArea name cannot be empty.");
+    if (!trimmedCode) throw new Error("SubArea code cannot be empty.");
+    if (!areaId) throw new Error("Area ID is required to create a sub-area.");
+    // The check for projectId is removed.
+
     const allSubAreas = getStoredItems<SubArea>(SUBAREAS_KEY);
     const parentAreaSubAreas = allSubAreas.filter(sa => sa.areaId === areaId);
-    if (parentAreaSubAreas.some(sa => sa.name.toLowerCase() === trimmedName.toLowerCase())) {
+
+    if (parentAreaSubAreas.some(sa => sa.name && sa.name.toLowerCase() === trimmedName.toLowerCase())) {
       throw new Error(`A sub-area with the name "${trimmedName}" already exists in this area.`);
     }
-    const newSubArea: SubArea = { id: generateId(), name: trimmedName, areaId };
+    if (parentAreaSubAreas.some(sa => sa.code && sa.code.toLowerCase() === trimmedCode.toLowerCase())) {
+      throw new Error(`A sub-area with the code "${trimmedCode}" already exists in this area.`);
+    }
+
+    const newSubArea: SubArea = {
+      id: generateId(),
+      name: trimmedName,
+      code: trimmedCode,
+      areaId: areaId,
+      description: description || '', // Handle possibly undefined description
+      status: status || 'Active'    // Handle possibly undefined status
+    };
     setStoredItems<SubArea>(SUBAREAS_KEY, [...allSubAreas, newSubArea]);
+    dispatchDataChangedEvent();
     return newSubArea;
   },
 
-  updateSubArea: (id: string, updates: Partial<Pick<SubArea, 'name' /* | 'areaId' */>>): SubArea => {
+  updateSubArea: (id: string, updates: Partial<Omit<SubArea, 'id' | 'areaId'>>): SubArea => {
+    // projectId is no longer part of SubArea type, so it won't be in updates.
     let allSubAreas = getStoredItems<SubArea>(SUBAREAS_KEY);
     const subAreaIndex = allSubAreas.findIndex(sa => sa.id === id);
 
@@ -62,25 +86,42 @@ export const subAreaService = {
     }
 
     const currentSubArea = allSubAreas[subAreaIndex];
-    let newTrimmedName = currentSubArea.name;
+    const newName = updates.name?.trim();
+    const newCode = updates.code?.trim();
 
-    if (updates.name !== undefined) {
-        newTrimmedName = updates.name.trim();
-        if (!newTrimmedName) {
-            throw new Error("SubArea name cannot be empty.");
-        }
-        if (newTrimmedName.toLowerCase() !== currentSubArea.name.toLowerCase()) {
-            const parentAreaSubAreas = allSubAreas.filter(sa => sa.areaId === currentSubArea.areaId);
-            if (parentAreaSubAreas.some(sa => sa.id !== id && sa.name.toLowerCase() === newTrimmedName.toLowerCase())) {
-                throw new Error(`Another sub-area with the name "${newTrimmedName}" already exists in this area.`);
-            }
-        }
+    if (newName === '') throw new Error("SubArea name cannot be empty.");
+    if (newCode === '') throw new Error("SubArea code cannot be empty.");
+
+    const currentSubAreaNameLower = (currentSubArea.name || '').toLowerCase();
+    const currentSubAreaCodeLower = (currentSubArea.code || '').toLowerCase();
+
+    if (newName && newName.toLowerCase() !== currentSubAreaNameLower) {
+      const parentAreaSubAreas = allSubAreas.filter(sa => sa.areaId === currentSubArea.areaId);
+      if (parentAreaSubAreas.some(sa => sa.id !== id && sa.name && sa.name.toLowerCase() === newName.toLowerCase())) {
+        throw new Error(`Another sub-area with the name "${newName}" already exists in this area.`);
+      }
+    }
+    if (newCode && newCode.toLowerCase() !== currentSubAreaCodeLower) {
+      const parentAreaSubAreas = allSubAreas.filter(sa => sa.areaId === currentSubArea.areaId);
+      if (parentAreaSubAreas.some(sa => sa.id !== id && sa.code && sa.code.toLowerCase() === newCode.toLowerCase())) {
+        throw new Error(`Another sub-area with the code "${newCode}" already exists in this area.`);
+      }
     }
 
-    const updatedSubArea = { ...currentSubArea, name: newTrimmedName };
+    const updatedSubAreaData = { ...currentSubArea, ...updates };
+    if (newName) updatedSubAreaData.name = newName;
+    if (newCode) updatedSubAreaData.code = newCode;
+
+    const updatedSubArea = { ...updatedSubAreaData }; // No specific 'updatedAt' for SubArea in model
     allSubAreas[subAreaIndex] = updatedSubArea;
     setStoredItems<SubArea>(SUBAREAS_KEY, allSubAreas);
+    dispatchDataChangedEvent();
     return updatedSubArea;
+  },
+
+  // getSubAreaById is an alias for getSubArea
+  getSubAreaById: (id: string): SubArea | undefined => {
+    return subAreaService.getSubArea(id);
   },
 
   deleteSubArea: (id: string): boolean => {
@@ -99,6 +140,7 @@ export const subAreaService = {
     subAreaProcesses.forEach(proc => {
         modelStorage.deleteModelsForProcess(proc.id);
     });
+    dispatchDataChangedEvent();
     return true;
   },
 
@@ -109,5 +151,21 @@ export const subAreaService = {
       count += modelStorage.getModelsForProcess(process.id).length;
     }
     return count;
+  },
+
+  getProjectIdForSubArea: (subAreaId: string): string | undefined => {
+    if (!subAreaId) return undefined;
+    const subArea = subAreaService.getSubArea(subAreaId);
+    if (subArea && subArea.areaId) {
+      const area = areaService.getArea(subArea.areaId);
+      if (area && area.projectId) {
+        return area.projectId;
+      } else {
+        // console.warn(`[subAreaService]getProjectIdForSubArea: Parent area or projectId not found for areaId: ${subArea.areaId}`);
+      }
+    } else {
+      // console.warn(`[subAreaService]getProjectIdForSubArea: SubArea not found or areaId missing for subAreaId: ${subAreaId}`);
+    }
+    return undefined;
   },
 };

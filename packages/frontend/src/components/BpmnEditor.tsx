@@ -5,6 +5,7 @@ import 'bpmn-js/dist/assets/bpmn-font/css/bpmn-embedded.css'
 import type { BpmnEditorProps, ElementProperties } from '@/types'
 import { modelStorage } from '@/services/modelStorage'
 import toast from 'react-hot-toast';
+import { generateMinimalBpmnXml } from '@/lib/bpmnUtils'; // Added import
 
 // Define the handles exposed by useImperativeHandle
 export interface BpmnEditorHandles {
@@ -17,36 +18,10 @@ export interface BpmnEditorHandles {
   // fitViewport: () => void;
 }
 
-const generateInitialBpmnXml = (name: string): string => {
-  // Sanitize 'name' to prevent XML injection if it comes from user input directly
-  // For simplicity here, we assume 'name' is controlled.
-  const safeName = name.replace(/[<>&'"]/g, (c) => {
-    switch (c) {
-      case '<': return '&lt;';
-      case '>': return '&gt;';
-      case '&': return '&amp;';
-      case '\'': return '&apos;';
-      case '"': return '&quot;';
-      default: return c;
-    }
-  });
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" id="Definitions_1" targetNamespace="http://bpmn.io/schema/bpmn">
-  <bpmn:process id="Process_Initial" name="${safeName}" isExecutable="false">
-    <bpmn:startEvent id="StartEvent_1" />
-  </bpmn:process>
-  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
-    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Process_Initial">
-      <bpmndi:BPMNShape id="_BPMNShape_StartEvent_2" bpmnElement="StartEvent_1">
-        <dc:Bounds x="173" y="102" width="36" height="36" />
-      </bpmndi:BPMNShape>
-    </bpmndi:BPMNPlane>
-  </bpmndi:BPMNDiagram>
-</bpmn:definitions>`;
-};
+// Removed internal generateInitialBpmnXml function
 
 export interface BpmnEditorComponentProps extends BpmnEditorProps {
-  processId: string;
+  processId: string; // processId is used for saving/loading from storage
   processName?: string; // Added processName prop
   onElementSelect?: (element: ElementProperties | null) => void
 }
@@ -84,22 +59,24 @@ const BpmnEditor = React.forwardRef<BpmnEditorHandles, BpmnEditorComponentProps>
       setError(null);
 
       try {
-        let xmlToLoad: string;
-        let isInitialXmlGenerated = false; // Flag to track if XML was generated
+        let xmlToLoad: string | null = null;
+        let usedFallback = false;
 
-        if (processId) {
-          const loadedXml = await modelStorage.getModelXmlByProcessId(processId);
-          if (loadedXml) {
-            xmlToLoad = loadedXml;
-          } else {
-            // No XML found in storage, generate initial XML using processName
-            xmlToLoad = generateInitialBpmnXml(processName || 'Default Process Name');
-            isInitialXmlGenerated = true;
+        if (propInitialXml && propInitialXml.trim() !== "") {
+          // If propInitialXml is provided, prioritize it.
+          xmlToLoad = propInitialXml;
+        } else if (processId) {
+          // If no propInitialXml, try loading from storage using processId
+          const loadedXmlFromStorage = await modelStorage.getModelXmlByProcessId(processId);
+          if (loadedXmlFromStorage) {
+            xmlToLoad = loadedXmlFromStorage;
           }
-        } else {
-          // No processId provided, use propInitialXml or generate a very basic default
-          xmlToLoad = propInitialXml || generateInitialBpmnXml(processName || 'Default Process Name');
-          isInitialXmlGenerated = true; // Also considered generated if no processId and using default
+        }
+
+        // If still no XML loaded (neither from prop nor storage), generate a minimal one.
+        if (!xmlToLoad) {
+          xmlToLoad = generateMinimalBpmnXml(processName || "New Diagram");
+          usedFallback = true; // Indicates that we're using a generated diagram
         }
 
         if (modelerRef.current) {
@@ -129,14 +106,13 @@ const BpmnEditor = React.forwardRef<BpmnEditorHandles, BpmnEditorComponentProps>
           const modelerInstance = modelerRef.current;
 
           try {
-            await modelerInstance.importXML(xmlToLoad);
+            await modelerInstance.importXML(xmlToLoad!); // xmlToLoad is guaranteed to be a string here
             if (!mounted) return;
-            setLastSavedXml(xmlToLoad); // Set lastSavedXml after successful import
+            setLastSavedXml(xmlToLoad!);
 
-            if (isInitialXmlGenerated && mounted) {
-              toast.info(`Loaded initial diagram for '${processName || 'Default Process Name'}'.`, { duration: 3000 });
+            if (usedFallback && mounted) {
+              toast.info(`Started with a new diagram: '${processName || 'New Diagram'}'.`, { duration: 3000 });
             }
-
             // Configurar eventos
             const eventBus = modelerInstance.get('eventBus')
             
@@ -172,18 +148,29 @@ const BpmnEditor = React.forwardRef<BpmnEditorHandles, BpmnEditorComponentProps>
             if (mounted) {
               setIsLoading(false);
             }
-          } catch (err: any) {
-            console.error('Erro ao carregar diagrama BPMN:', err);
+          } catch (importError: any) {
+            console.error('Erro ao carregar diagrama BPMN (propInitialXml or from storage):', importError);
             if (mounted) {
-              setError(`Erro ao carregar o diagrama BPMN: ${err.message || String(err)}`);
-              setIsLoading(false);
+              // Fallback: Try to load a minimal diagram if the primary XML fails
+              try {
+                toast.error(`Failed to load provided diagram. Loading a fallback. Error: ${importError.message}`, { duration: 5000 });
+                const fallbackXml = generateMinimalBpmnXml(processName || "Fallback Diagram");
+                await modelerInstance.importXML(fallbackXml);
+                setLastSavedXml(fallbackXml);
+                toast.info(`Loaded fallback diagram: '${processName || "Fallback Diagram"}'.`, { duration: 3000 });
+              } catch (fallbackError: any) {
+                console.error('Erro ao carregar diagrama BPMN de fallback:', fallbackError);
+                setError(`Error loading fallback BPMN diagram: ${fallbackError.message || String(fallbackError)}`);
+              } finally {
+                if (mounted) setIsLoading(false);
+              }
             }
           }
         });
-      } catch (err: any) {
+      } catch (err: any) { // Catch errors from outer try (modeler instantiation or initial storage read attempt)
         console.error('Erro ao inicializar o modeler BPMN:', err);
         if (mounted) {
-          setError(`Erro ao inicializar o modeler BPMN: ${err.message || String(err)}`);
+          setError(`Error initializing BPMN modeler: ${err.message || String(err)}`);
           setIsLoading(false);
         }
       }
@@ -193,6 +180,7 @@ const BpmnEditor = React.forwardRef<BpmnEditorHandles, BpmnEditorComponentProps>
 
     return () => {
       mounted = false;
+      // The requestAnimationFrame for destroy is good.
       requestAnimationFrame(() => {
         if (modelerRef.current) {
             try {
@@ -204,7 +192,7 @@ const BpmnEditor = React.forwardRef<BpmnEditorHandles, BpmnEditorComponentProps>
         }
       });
     };
-  }, [processId, propInitialXml]);
+  }, [processId, propInitialXml, processName]); // Added processName to dependency array as it's used in fallback XML generation.
 
 
   const handleSave = async () => {
@@ -222,6 +210,31 @@ const BpmnEditor = React.forwardRef<BpmnEditorHandles, BpmnEditorComponentProps>
     }
 
     try {
+      // Attempt to update the root process name before saving XML
+      if (modelerRef.current && processName) {
+        const canvas = modelerRef.current.get('canvas');
+        const modeling = modelerRef.current.get('modeling');
+        const rootElement = canvas.getRootElement(); // This is the root shape
+
+        if (rootElement && rootElement.businessObject && rootElement.businessObject.$type === 'bpmn:Process') {
+          // Check if the name needs updating to avoid unnecessary updates
+          if (rootElement.businessObject.name !== processName) {
+            modeling.updateProperties(rootElement.businessObject, { name: processName });
+            console.log(`[BpmnEditor] Updated root process name to: ${processName}`);
+          }
+        } else if (rootElement && rootElement.businessObject && rootElement.businessObject.id) {
+            // Fallback for cases where the root element might be a collaboration containing processes
+            const definitions = modelerRef.current.getDefinitions();
+            if (definitions && definitions.get('rootElements') && definitions.get('rootElements').length > 0) {
+                const mainProcess = definitions.get('rootElements').find((el: any) => el.$type === 'bpmn:Process');
+                if (mainProcess && mainProcess.name !== processName) {
+                    modeling.updateProperties(mainProcess, { name: processName });
+                    console.log(`[BpmnEditor] Updated main process name (in collaboration) to: ${processName}`);
+                }
+            }
+        }
+      }
+
       const { xml: currentXml } = await modelerRef.current.saveXML({ format: true });
 
       // --- BPMN XML Validation Step ---

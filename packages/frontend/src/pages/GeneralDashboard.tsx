@@ -49,10 +49,12 @@ const GeneralDashboard: React.FC<Record<string, never>> = (/*{ setActiveView }*/
     setIsProjectFormOpen(true);
   };
 
-  const handleCreateProjectSave = async (projectData: Pick<Project, 'name'>) => {
+  const handleCreateProjectSave = async (projectData: Omit<Project, 'id' | 'createdAt' | 'updatedAt'>) => {
     setProjectFormError(null);
     try {
-      const newProject = await projectService.createProject({ name: projectData.name });
+      // Pass the full projectData object received from the form
+      const newProject = await projectService.createProject(projectData);
+
       toast.success(`Project "${newProject.name}" created successfully!`);
       setIsProjectFormOpen(false);
       // Optimistically update the local state

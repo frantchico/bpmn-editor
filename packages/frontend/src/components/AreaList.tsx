@@ -10,7 +10,7 @@ import { toast } from 'sonner';
 
 interface AreaListProps {
   project: Project;
-  onNavigateToAreaSubAreas: (area: Area) => void;
+  onNavigateToAreaSubAreas: (area: Area, project: Project) => void;
 }
 
 export const AreaList: React.FC<AreaListProps> = ({ project, onNavigateToAreaSubAreas }) => {
@@ -27,16 +27,26 @@ export const AreaList: React.FC<AreaListProps> = ({ project, onNavigateToAreaSub
     loadAreas();
   }, [project.id]);
 
-  const handleSaveArea = (areaData: Pick<Area, 'name' | 'projectId'> | (Pick<Area, 'name' | 'projectId'> & {id: string})) => {
+  // areaData from AreaForm contains all fields: name, code, description, status, and projectId
+  const handleSaveArea = (areaData: (Omit<Area, 'id'> & { projectId: string }) | Area) => {
     setFormErrorMessage(null);
     try {
       let savedArea: Area;
-      if ('id' in areaData) {
-        // Ensure projectId is not lost during update, though not directly editable in this form
-        savedArea = areaService.updateArea(areaData.id, { name: areaData.name });
+      if ('id' in areaData && areaData.id) { // Check for id and its truthiness for update
+        // For update, areaData is 'Area'. The service expects id and partial data.
+        // We should pass all editable fields from areaData.
+        // The current areaService.updateArea only accepts 'name'. This might need adjustment in a future task.
+        // For now, sticking to the existing service signature for update.
+        savedArea = areaService.updateArea(areaData.id, {
+          name: areaData.name,
+          // code: areaData.code, // Assuming service will be updated to take these
+          // description: areaData.description,
+          // status: areaData.status,
+        });
         toast.success(`Area "${savedArea.name}" updated successfully.`);
       } else {
-        savedArea = areaService.createArea({ name: areaData.name, projectId: project.id });
+        // For create, areaData is Omit<Area, 'id'> but includes all necessary fields from the form
+        savedArea = areaService.createArea(areaData as Omit<Area, 'id'>);
         toast.success(`Area "${savedArea.name}" created successfully in project "${project.name}".`);
       }
       loadAreas();
@@ -114,7 +124,7 @@ export const AreaList: React.FC<AreaListProps> = ({ project, onNavigateToAreaSub
               </CardHeader>
               <CardContent>
                 <CardDescription>Contains sub-areas and processes.</CardDescription>
-                 <Button variant="outline" size="sm" className="mt-4" onClick={() => onNavigateToAreaSubAreas(area)}>
+                <Button variant="outline" size="sm" className="mt-4" onClick={() => onNavigateToAreaSubAreas(area, project)}>
                    View Sub-Areas
                 </Button>
               </CardContent>

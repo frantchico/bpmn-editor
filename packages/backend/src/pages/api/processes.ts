@@ -3,7 +3,19 @@ import fs from 'fs/promises';
 import path from 'path';
 import runMiddleware from '@/lib/cors';
 import Cors from 'cors';
-type Process = { id: string; name: string; subAreaId: string; };
+
+type Process = {
+  id: string;
+  code: string;
+  name: string;
+  description: string;
+  status: string;
+  subAreaId: string; // Changed from areaId
+  model: string; // Added - XML of the BPMN diagram
+  version?: number;
+  updatedAt?: string;
+  projectId?: string;
+};
 
 const processesFilePath = path.join(process.cwd(), 'data', 'processes.json');
 

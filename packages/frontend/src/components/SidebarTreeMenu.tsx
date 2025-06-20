@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { projectService } from '@/services/projectService';
 import { areaService } from '@/services/areaService';
 import { subAreaService } from '@/services/subAreaService';
@@ -22,6 +22,61 @@ const SidebarTreeMenu: React.FC = () => {
   const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({});
   const { navigateTo, currentView } = useNavigation(); // Get navigateTo and currentView from context
 
+  const fetchDataAndBuildTree = useCallback(() => {
+    setIsLoading(true);
+    try {
+      const projects = projectService.getProjects();
+      const areas = areaService.getAreas();
+      const subAreas = subAreaService.getSubAreas();
+
+      const buildTree = (): TreeNode[] => {
+        return projects.map(project => ({
+          id: project.id,
+          name: project.name,
+          type: 'project',
+          originalData: project,
+          children: areas
+            .filter(area => area.projectId === project.id)
+            .map(area => ({
+              id: area.id,
+              name: area.name,
+              type: 'area',
+              originalData: area,
+              children: subAreas
+                .filter(subArea => subArea.areaId === area.id)
+                .map(subArea => ({
+                  id: subArea.id,
+                  name: subArea.name,
+                  type: 'subarea',
+                  originalData: subArea,
+                  children: [],
+                })),
+            })),
+        }));
+      };
+      setTreeData(buildTree());
+    } catch (error) {
+      console.error("Error fetching or building tree data:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [setIsLoading, setTreeData]);
+
+  useEffect(() => {
+    fetchDataAndBuildTree(); // Initial fetch
+
+    const handleDataChange = () => {
+      console.log('Data changed event received, refreshing sidebar tree.');
+      fetchDataAndBuildTree();
+    };
+
+    document.addEventListener('dataChanged', handleDataChange);
+
+    return () => {
+      document.removeEventListener('dataChanged', handleDataChange);
+    };
+  }, [fetchDataAndBuildTree]);
+
   useEffect(() => {
     // Sync sidebar's activeNode with the global navigation state
     if (currentView.itemId &&
@@ -37,51 +92,6 @@ const SidebarTreeMenu: React.FC = () => {
       }
     }
   }, [currentView, activeNode, setActiveNode]); // setActiveNode added to deps as it's a setter from useState
-
-
-  useEffect(() => {
-    const fetchDataAndBuildTree = () => {
-      setIsLoading(true);
-      try {
-        const projects = projectService.getProjects();
-        const areas = areaService.getAreas();
-        const subAreas = subAreaService.getSubAreas();
-
-        const buildTree = (): TreeNode[] => {
-          return projects.map(project => ({
-            id: project.id,
-            name: project.name,
-            type: 'project',
-            originalData: project,
-            children: areas
-              .filter(area => area.projectId === project.id)
-              .map(area => ({
-                id: area.id,
-                name: area.name,
-                type: 'area',
-                originalData: area,
-                children: subAreas
-                  .filter(subArea => subArea.areaId === area.id)
-                  .map(subArea => ({
-                    id: subArea.id,
-                    name: subArea.name,
-                    type: 'subarea',
-                    originalData: subArea,
-                    children: [],
-                  })),
-              })),
-          }));
-        };
-        setTreeData(buildTree());
-      } catch (error) {
-        console.error("Error fetching or building tree data:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchDataAndBuildTree();
-  }, []);
 
   const handleNodeClick = (node: TreeNode) => {
     setActiveNode({ id: node.id, type: node.type }); // Set local active state for sidebar styling

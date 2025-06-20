@@ -6,12 +6,17 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { MoreHorizontal } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { toast } from 'sonner';
+import toast from 'react-hot-toast';
 
 interface SubAreaListProps {
   area: Area;
   project: Project; // For context like breadcrumbs or titles
   onNavigateToSubAreaProcesses: (subArea: SubArea) => void;
+}
+
+// Interface for the data coming from SubAreaForm
+interface SubAreaFormData extends Omit<SubArea, 'id'> {
+  id?: string; // id is optional for creation, present for updates
 }
 
 export const SubAreaList: React.FC<SubAreaListProps> = ({ area, project, onNavigateToSubAreaProcesses }) => {
@@ -24,24 +29,29 @@ export const SubAreaList: React.FC<SubAreaListProps> = ({ area, project, onNavig
 
   useEffect(loadSubAreas, [area.id]);
 
-  const handleSaveSubArea = (subAreaData: Pick<SubArea, 'name' | 'areaId'> | (Pick<SubArea, 'name' | 'areaId'> & {id: string})) => {
+  const handleSaveSubArea = async (subAreaData: SubAreaFormData) => {
     setFormErrorMessage(null);
     try {
       let savedSubArea: SubArea;
-      if ('id' in subAreaData) {
-        savedSubArea = subAreaService.updateSubArea(subAreaData.id, { name: subAreaData.name });
+      if (subAreaData.id) { // Update path
+        const { id, name, code, description, status } = subAreaData as SubArea; // projectId removed, cast to SubArea
+        // Pass projectId in the updates object for the service to handle
+        savedSubArea = await subAreaService.updateSubArea(id, { name, code, description, status }); // projectId removed
         toast.success(`Sub-Area "${savedSubArea.name}" updated successfully.`);
-      } else {
-        savedSubArea = subAreaService.createSubArea({ name: subAreaData.name, areaId: area.id });
+      } else { // Create path
+        // subAreaData for create already includes areaId and projectId from the form // projectId no longer sent from form
+        savedSubArea = await subAreaService.createSubArea(subAreaData);
         toast.success(`Sub-Area "${savedSubArea.name}" created successfully in area "${area.name}".`);
       }
       loadSubAreas();
       setIsFormOpen(false);
       setEditingSubArea(null);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "An unknown error occurred.";
+      // return true; // Optional: indicate success to form if needed by ProjectForm's onSave structure
+    } catch (error: any) {
+      const message = error.message || "An unknown error occurred.";
       toast.error(`Failed to save sub-area: ${message}`);
       setFormErrorMessage(message);
+      // return false; // Optional: indicate failure
     }
   };
 
@@ -109,12 +119,16 @@ export const SubAreaList: React.FC<SubAreaListProps> = ({ area, project, onNavig
           ))}
         </div>
       )}
+      {/* Add console.log for debugging before rendering SubAreaForm in create mode */}
+      {isFormOpen && !editingSubArea && console.log('[SubAreaList] Rendering SubAreaForm for CREATE. areaId:', area.id)}
+
       <SubAreaForm
         isOpen={isFormOpen}
         onClose={handleFormClose}
         onSave={handleSaveSubArea}
-        subArea={editingSubArea}
-        areaId={area.id} // For create context
+        subArea={editingSubArea} // null for create mode
+        areaId={area.id}         // Passed for create context
+        // projectId={project.id}   // Prop removed
         errorMessage={formErrorMessage}
       />
     </div>

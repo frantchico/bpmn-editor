@@ -3,7 +3,15 @@ import fs from 'fs/promises';
 import path from 'path';
 import runMiddleware from '@/lib/cors';
 import Cors from 'cors';
-type Area = { id: string; name: string; projectId: string; };
+
+type Area = {
+  id: string;
+  code: string;
+  name: string;
+  description: string;
+  status: string;
+  projectId: string;
+};
 
 const areasFilePath = path.join(process.cwd(), 'data', 'areas.json');
 
