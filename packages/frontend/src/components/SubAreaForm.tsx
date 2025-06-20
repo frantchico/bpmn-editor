@@ -81,7 +81,7 @@ export const SubAreaForm: React.FC<SubAreaFormProps> = ({ subArea, areaId, isOpe
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('[SubAreaForm] handleSubmit called. Name:', name, 'Code:', code, 'areaId prop:', areaId, 'projectId prop:', projectId, 'subArea prop:', subArea);
+    console.log('[SubAreaForm] handleSubmit called. Name:', name, 'Code:', code, 'areaId prop:', areaId, 'subArea prop:', subArea);
 
     console.log('[SubAreaForm] Validating name and code...');
     if (!name.trim() || !code.trim()) {
