@@ -25,8 +25,9 @@ const setStoredItems = <T>(key: string, items: T[]): void => {
   if (typeof window === 'undefined') return;
   try {
     window.localStorage.setItem(key, JSON.stringify(items));
-  } catch (e) {
+  } catch (e: any) { // Added :any for e.message
     console.error(`Error setting localStorage key ${key}:`, e);
+    throw new Error(`Failed to save to localStorage key '${key}': ${e.message || String(e)}`);
   }
 };
 
