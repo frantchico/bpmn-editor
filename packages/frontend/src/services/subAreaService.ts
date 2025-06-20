@@ -2,6 +2,7 @@ import { SubArea, Process, BpmnModel } from '@/types';
 import { generateId } from '@/lib/utils';
 import { modelStorage } from './modelStorage';
 import { processService } from './processService';
+import { areaService } from './areaService';
 
 const SUBAREAS_KEY = 'wfstudio_subareas';
 const PROCESSES_KEY = 'wfstudio_processes';
@@ -38,15 +39,15 @@ export const subAreaService = {
   },
 
   createSubArea: (subAreaData: Omit<SubArea, 'id'>): SubArea => {
-    const { name, code, areaId, projectId } = subAreaData; // Ensure all necessary fields
+    // projectId is no longer part of subAreaData due to type changes
+    const { name, code, areaId, description, status } = subAreaData;
     const trimmedName = name.trim();
     const trimmedCode = code.trim();
 
     if (!trimmedName) throw new Error("SubArea name cannot be empty.");
     if (!trimmedCode) throw new Error("SubArea code cannot be empty.");
     if (!areaId) throw new Error("Area ID is required to create a sub-area.");
-    if (!projectId) throw new Error("Project ID is required to create a sub-area.");
-
+    // The check for projectId is removed.
 
     const allSubAreas = getStoredItems<SubArea>(SUBAREAS_KEY);
     const parentAreaSubAreas = allSubAreas.filter(sa => sa.areaId === areaId);
@@ -59,18 +60,19 @@ export const subAreaService = {
     }
 
     const newSubArea: SubArea = {
-      ...subAreaData,
       id: generateId(),
       name: trimmedName,
-      code: trimmedCode
-      // description, status, projectId are spread from subAreaData
+      code: trimmedCode,
+      areaId: areaId,
+      description: description || '', // Handle possibly undefined description
+      status: status || 'Active'    // Handle possibly undefined status
     };
     setStoredItems<SubArea>(SUBAREAS_KEY, [...allSubAreas, newSubArea]);
     return newSubArea;
   },
 
   updateSubArea: (id: string, updates: Partial<Omit<SubArea, 'id' | 'areaId'>>): SubArea => {
-    // Now allows 'projectId' to be part of 'updates'
+    // projectId is no longer part of SubArea type, so it won't be in updates.
     let allSubAreas = getStoredItems<SubArea>(SUBAREAS_KEY);
     const subAreaIndex = allSubAreas.findIndex(sa => sa.id === id);
 
@@ -142,5 +144,21 @@ export const subAreaService = {
       count += modelStorage.getModelsForProcess(process.id).length;
     }
     return count;
+  },
+
+  getProjectIdForSubArea: (subAreaId: string): string | undefined => {
+    if (!subAreaId) return undefined;
+    const subArea = subAreaService.getSubArea(subAreaId);
+    if (subArea && subArea.areaId) {
+      const area = areaService.getArea(subArea.areaId);
+      if (area && area.projectId) {
+        return area.projectId;
+      } else {
+        // console.warn(`[subAreaService]getProjectIdForSubArea: Parent area or projectId not found for areaId: ${subArea.areaId}`);
+      }
+    } else {
+      // console.warn(`[subAreaService]getProjectIdForSubArea: SubArea not found or areaId missing for subAreaId: ${subAreaId}`);
+    }
+    return undefined;
   },
 };

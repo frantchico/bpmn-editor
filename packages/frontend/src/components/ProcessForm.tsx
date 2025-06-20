@@ -16,16 +16,14 @@ import { toast } from 'sonner'; // Added
 interface ProcessFormProps {
   process?: Process | null;
   subAreaId?: string; // For creating, to associate with a sub-area
-  projectId?: string; // Passed down for context, new Processes need it.
+  // projectId?: string; // Removed
   isOpen: boolean;
   onClose: () => void;
-  // The Process type already includes subAreaId and projectId.
-  // For creation, these are passed explicitly. For update, they are part of the process object.
-  onSave: (processData: Omit<Process, 'id'> | Process) => void;
+  onSave: (processData: Omit<Process, 'id' | 'projectId'> | Omit<Process, 'projectId'>) => void;
   errorMessage?: string | null;
 }
 
-export const ProcessForm: React.FC<ProcessFormProps> = ({ process, subAreaId, projectId, isOpen, onClose, onSave, errorMessage }) => {
+export const ProcessForm: React.FC<ProcessFormProps> = ({ process, subAreaId, isOpen, onClose, onSave, errorMessage }) => { // projectId removed from destructuring
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
   const [description, setDescription] = useState('');
@@ -107,21 +105,21 @@ export const ProcessForm: React.FC<ProcessFormProps> = ({ process, subAreaId, pr
       return;
     }
 
-    const currentProjectId = process ? process.projectId : projectId;
-    if (!currentProjectId && !process) {
-        toast.error('Project ID is missing for the new Process. Cannot save.');
-        return;
-    }
+    // const currentProjectId = process ? process.projectId : projectId; // Removed
+    // if (!currentProjectId && !process) { // Removed
+    //     toast.error('Project ID is missing for the new Process. Cannot save.');
+    //     return;
+    // }
 
     setIsSaving(true); // Set saving state
-    let dataToSave: Omit<Process, 'id'> | Process = {
+    let dataToSave: Omit<Process, 'id' | 'projectId'> = { // Ensure type matches onSave, projectId is removed
       name,
       code,
       description,
       status,
       model, // Current model value from state
       subAreaId: process ? process.subAreaId : subAreaId!,
-      projectId: currentProjectId!,
+      // projectId: currentProjectId!, // Removed
       version: (process?.version || 0) + 1, // Increment version or start at 1
       updatedAt: new Date().toISOString(), // Set current timestamp
     };
@@ -151,13 +149,22 @@ export const ProcessForm: React.FC<ProcessFormProps> = ({ process, subAreaId, pr
     // The 'process' prop contains the original process data if editing
     try {
       if (process) {
-        await onSave({ ...process, ...dataToSave });
+        // For update, we pass all fields. The 'id' comes from 'process'.
+        // The 'projectId' if present on 'process' will be part of '...process' spread,
+        // but 'onSave' expects Omit<Process, 'projectId'> if id is present.
+        // So, we explicitly create the object expected by onSave.
+        const updateData: Omit<Process, 'projectId'> = {
+            ...(process), // spread existing process, includes id, and existing projectId
+            ...dataToSave // spread fields from form, this has no projectId
+        };
+        delete (updateData as any).projectId; // Ensure projectId is not in the final saved object for update consistency
+        await onSave(updateData);
         toast.success(`Process '${dataToSave.name}' updated successfully!`);
-      } else if (subAreaId && currentProjectId) {
-        await onSave(dataToSave);
+      } else if (subAreaId) { // currentProjectId removed from condition
+        await onSave(dataToSave); // dataToSave is already Omit<Process, 'id' | 'projectId'>
         toast.success(`Process '${dataToSave.name}' created successfully!`);
       } else {
-        toast.error('SubArea ID or Project ID is missing. Cannot save process.');
+        toast.error('SubArea ID is missing. Cannot save process.'); // Updated error message
         setIsSaving(false);
         return;
       }

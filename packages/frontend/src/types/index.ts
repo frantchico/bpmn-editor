@@ -25,7 +25,6 @@ export interface SubArea {
   description: string; // Added
   status: string; // Added
   areaId: string;
-  projectId: string; // Added, assuming SubArea also needs a projectId for context
 }
 
 export interface Process {

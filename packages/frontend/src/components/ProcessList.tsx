@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { MoreHorizontal, UploadCloud, Edit3, Trash2, Eye } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { toast } from 'sonner';
+import toast from 'react-hot-toast'; // Corrected import
 
 interface ProcessListProps {
   subArea: SubArea;
@@ -40,22 +40,31 @@ export const ProcessList: React.FC<ProcessListProps> = ({ subArea, area, project
     loadProcessesAndModels();
   }, [subArea.id]);
 
-  const handleSaveProcess = (processData: Pick<Process, 'name' | 'subAreaId'> | (Pick<Process, 'name' | 'subAreaId'> & {id: string})) => {
+  const handleSaveProcess = (processData: Omit<Process, 'id' | 'projectId'> | Omit<Process, 'projectId'>) => {
     setFormErrorMessage(null);
     try {
       let savedProcess: Process;
-      if ('id' in processData) {
-        savedProcess = processService.updateProcess(processData.id, { name: processData.name });
+      if ('id' in processData && processData.id) {
+        // Type assertion to satisfy service's expected full Process for updates (minus id, subAreaId, projectId)
+        // processData here is Omit<Process, 'projectId'> & {id: string}
+        savedProcess = processService.updateProcess(processData.id, processData as Partial<Omit<Process, 'id' | 'subAreaId' | 'projectId'>>);
         toast.success(`Process "${savedProcess.name}" updated successfully.`);
       } else {
-        savedProcess = processService.createProcess({ name: processData.name, subAreaId: subArea.id });
+        // processData here is Omit<Process, 'id' | 'projectId'>
+        // We need to add subAreaId explicitly as it's from ProcessList's context for new items
+        const dataForService: Omit<Process, 'id' | 'projectId'> = {
+          ...(processData as Omit<Process, 'id' | 'projectId'>), // Cast to assure TypeScript
+          subAreaId: subArea.id, // Add subAreaId from context
+        };
+        // projectId will be derived by the service
+        savedProcess = processService.createProcess(dataForService);
         toast.success(`Process "${savedProcess.name}" created successfully in sub-area "${subArea.name}".`);
       }
-      loadProcessesAndModels();
+      loadProcessesAndModels(); // Ensure this is called
       setIsFormOpen(false);
       setEditingProcess(null);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "An unknown error occurred.";
+    } catch (error: any) { // Keep error handling
+      const message = error.message || "An unknown error occurred.";
       toast.error(`Failed to save process: ${message}`);
       setFormErrorMessage(message);
     }

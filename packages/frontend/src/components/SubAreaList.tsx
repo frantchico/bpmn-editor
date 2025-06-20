@@ -34,12 +34,12 @@ export const SubAreaList: React.FC<SubAreaListProps> = ({ area, project, onNavig
     try {
       let savedSubArea: SubArea;
       if (subAreaData.id) { // Update path
-        const { id, name, code, description, status, projectId } = subAreaData; // Destructure projectId
+        const { id, name, code, description, status } = subAreaData as SubArea; // projectId removed, cast to SubArea
         // Pass projectId in the updates object for the service to handle
-        savedSubArea = await subAreaService.updateSubArea(id, { name, code, description, status, projectId });
+        savedSubArea = await subAreaService.updateSubArea(id, { name, code, description, status }); // projectId removed
         toast.success(`Sub-Area "${savedSubArea.name}" updated successfully.`);
       } else { // Create path
-        // subAreaData for create already includes areaId and projectId from the form
+        // subAreaData for create already includes areaId and projectId from the form // projectId no longer sent from form
         savedSubArea = await subAreaService.createSubArea(subAreaData);
         toast.success(`Sub-Area "${savedSubArea.name}" created successfully in area "${area.name}".`);
       }
@@ -120,7 +120,7 @@ export const SubAreaList: React.FC<SubAreaListProps> = ({ area, project, onNavig
         </div>
       )}
       {/* Add console.log for debugging before rendering SubAreaForm in create mode */}
-      {isFormOpen && !editingSubArea && console.log('[SubAreaList] Rendering SubAreaForm for CREATE. areaId:', area.id, 'projectId:', project.id)}
+      {isFormOpen && !editingSubArea && console.log('[SubAreaList] Rendering SubAreaForm for CREATE. areaId:', area.id)}
 
       <SubAreaForm
         isOpen={isFormOpen}
@@ -128,7 +128,7 @@ export const SubAreaList: React.FC<SubAreaListProps> = ({ area, project, onNavig
         onSave={handleSaveSubArea}
         subArea={editingSubArea} // null for create mode
         areaId={area.id}         // Passed for create context
-        projectId={project.id}   // Ensure this is explicitly passed
+        // projectId={project.id}   // Prop removed
         errorMessage={formErrorMessage}
       />
     </div>
