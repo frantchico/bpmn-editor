@@ -81,12 +81,25 @@ export const SubAreaForm: React.FC<SubAreaFormProps> = ({ subArea, areaId, isOpe
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('[SubAreaForm] handleSubmit called. Name:', name, 'Code:', code, 'areaId prop:', areaId, 'subArea prop:', subArea);
+    console.log('[SubAreaForm] handleSubmit called. Initial Name:', name, 'Initial Code:', code, 'areaId prop:', areaId, 'subArea prop:', subArea);
 
-    console.log('[SubAreaForm] Validating name and code...');
-    if (!name.trim() || !code.trim()) {
-      console.log('[SubAreaForm] Name or code is missing.');
-      toast.error('SubArea name and code are required.');
+    let currentName = name;
+    let currentCode = code;
+
+    if (typeof currentName !== 'string') {
+      console.warn('[SubAreaForm] Name was not a string, defaulting to empty string. Original value:', currentName);
+      currentName = ''; // Default to empty string if undefined or other type
+    }
+    if (typeof currentCode !== 'string') {
+      console.warn('[SubAreaForm] Code was not a string, defaulting to empty string. Original value:', currentCode);
+      currentCode = ''; // Default to empty string if undefined or other type
+    }
+
+    // Use currentName and currentCode for trim validation and in subAreaDataToSave
+    console.log('[SubAreaForm] Validating name and code (after ensuring they are strings). Name:', currentName, 'Code:', currentCode);
+    if (!currentName.trim() || !currentCode.trim()) { // Now this trim is safer
+      console.log('[SubAreaForm] Name or code is empty after trim.');
+      toast.error('SubArea name and code are required and cannot be empty.');
       return;
     }
 
@@ -102,9 +115,9 @@ export const SubAreaForm: React.FC<SubAreaFormProps> = ({ subArea, areaId, isOpe
 
     setIsSaving(true);
     const subAreaDataToSave = {
-      name,
-      code,
-      description,
+      name: currentName,
+      code: currentCode,
+      description, // Assuming description and status are less problematic
       status,
       areaId: subArea ? subArea.areaId : areaId!,
       // projectId: currentProjectId!, // projectId removed
@@ -112,13 +125,14 @@ export const SubAreaForm: React.FC<SubAreaFormProps> = ({ subArea, areaId, isOpe
 
     try {
       if (subArea) {
-        console.log('[SubAreaForm] Calling onSave for update. Data:', { ...subAreaDataToSave, id: subArea.id });
+        // For updates, you might also want to log, but the task specifically asked for create path
+        console.log('[SubAreaForm] About to call onSave (Update). Data:', JSON.stringify({ ...subAreaDataToSave, id: subArea.id }, null, 2));
         await onSave({ ...subAreaDataToSave, id: subArea.id } as SubArea); // Cast to SubArea for update
-        toast.success(`SubArea '${name}' updated successfully!`);
+        toast.success(`SubArea '${currentName}' updated successfully!`); // Use currentName
       } else if (areaId) { // currentProjectId removed from condition
-        console.log('[SubAreaForm] Calling onSave for create. Data:', subAreaDataToSave);
+        console.log('[SubAreaForm] About to call onSave (Create). Data:', JSON.stringify(subAreaDataToSave, null, 2));
         await onSave(subAreaDataToSave as Omit<SubArea, 'id'>); // Cast to Omit<SubArea, 'id'> for create
-        toast.success(`SubArea '${name}' created successfully!`);
+        // toast.success(`SubArea '${currentName}' created successfully!`); // Use currentName, Removed as per previous request
       } else {
         // console.log('[SubAreaForm] Missing areaId or currentProjectId for create.'); // currentProjectId removed
         console.log('[SubAreaForm] Missing areaId for create.');

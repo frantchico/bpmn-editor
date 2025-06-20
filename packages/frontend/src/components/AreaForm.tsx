@@ -100,10 +100,10 @@ export const AreaForm: React.FC<AreaFormProps> = ({ area, projectId, isOpen, onC
     try {
       if (area) {
         await onSave({ ...areaDataToSave, id: area.id });
-        toast.success(`Area '${name}' updated successfully!`);
+        // toast.success(`Area '${name}' updated successfully!`); // Removed as per request
       } else if (projectId) {
         await onSave(areaDataToSave);
-        toast.success(`Area '${name}' created successfully!`);
+        // toast.success(`Area '${name}' created successfully!`); // Removed as per request
       } else {
         // This case should ideally be prevented by UI logic
         toast.error('Project ID is missing. Cannot save area.');

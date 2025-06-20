@@ -11,6 +11,10 @@ const SUBAREAS_KEY = 'wfstudio_subareas';
 const PROCESSES_KEY = 'wfstudio_processes';
 // BPMN_MODELS_KEY_PREFIX is not used directly here anymore due to modelStorage
 
+const dispatchDataChangedEvent = () => {
+  document.dispatchEvent(new CustomEvent('dataChanged'));
+};
+
 const getStoredItems = <T>(key: string): T[] => {
   if (typeof window === 'undefined') return [];
   const rawItem = window.localStorage.getItem(key);
@@ -84,6 +88,7 @@ export const projectService = {
     console.log('[projectService] Saving projects to localStorage. New project:', newProject, 'All projects:', [...projects, newProject]);
     setStoredItems<Project>(PROJECTS_KEY, [...projects, newProject]);
     console.log('[projectService] Returning new project:', newProject);
+    dispatchDataChangedEvent();
     return newProject;
   },
 
@@ -131,6 +136,7 @@ export const projectService = {
     };
     projects[projectIndex] = updatedProject;
     setStoredItems<Project>(PROJECTS_KEY, projects);
+    dispatchDataChangedEvent();
     return updatedProject;
   },
 
@@ -170,6 +176,7 @@ export const projectService = {
     projectProcesses.forEach(proc => {
         modelStorage.deleteModelsForProcess(proc.id);
     });
+    dispatchDataChangedEvent();
     return true;
   },
 
