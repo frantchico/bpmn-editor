@@ -107,6 +107,10 @@ export const AreaForm: React.FC<AreaFormProps> = ({ area, projectId, isOpen, onC
         console.log('[AreaForm] About to call onSave with areaDataToSave (create):', JSON.stringify(areaDataToSave, null, 2));
         // Diagnostic logs removed as per subtask instructions
 
+        console.log('[AreaForm] typeof onSave before calling (RE-CHECK):', typeof onSave);
+        if (typeof onSave === 'function') {
+          console.log('[AreaForm] RE-CHECK onSave.toString():', onSave.toString());
+        }
         await onSave(areaDataToSave);
         toast.success(`Area '${name}' created successfully!`);
       } else {
