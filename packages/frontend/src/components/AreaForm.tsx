@@ -82,6 +82,7 @@ export const AreaForm: React.FC<AreaFormProps> = ({ area, projectId, isOpen, onC
   }, [area, projectId, isOpen]);
 
   const handleSubmit = async (e: React.FormEvent) => {
+    console.log('[AreaForm] handleSubmit entered.');
     e.preventDefault();
     if (!name.trim() || !code.trim()) {
       toast.error('Area name and code are required.');
@@ -99,9 +100,11 @@ export const AreaForm: React.FC<AreaFormProps> = ({ area, projectId, isOpen, onC
 
     try {
       if (area) {
+        console.log('[AreaForm] About to call onSave with areaDataToSave (update):', JSON.stringify({ ...areaDataToSave, id: area.id }, null, 2));
         await onSave({ ...areaDataToSave, id: area.id });
         toast.success(`Area '${name}' updated successfully!`);
       } else if (projectId) {
+        console.log('[AreaForm] About to call onSave with areaDataToSave (create):', JSON.stringify(areaDataToSave, null, 2));
         await onSave(areaDataToSave);
         toast.success(`Area '${name}' created successfully!`);
       } else {
