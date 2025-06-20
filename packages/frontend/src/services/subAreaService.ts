@@ -8,6 +8,10 @@ const SUBAREAS_KEY = 'wfstudio_subareas';
 const PROCESSES_KEY = 'wfstudio_processes';
 // BPMN_MODELS_KEY_PREFIX is not used directly here
 
+const dispatchDataChangedEvent = () => {
+  document.dispatchEvent(new CustomEvent('dataChanged'));
+};
+
 const getStoredItems = <T>(key: string): T[] => {
   if (typeof window === 'undefined') return [];
   const item = window.localStorage.getItem(key);
@@ -68,6 +72,7 @@ export const subAreaService = {
       status: status || 'Active'    // Handle possibly undefined status
     };
     setStoredItems<SubArea>(SUBAREAS_KEY, [...allSubAreas, newSubArea]);
+    dispatchDataChangedEvent();
     return newSubArea;
   },
 
@@ -110,6 +115,7 @@ export const subAreaService = {
     const updatedSubArea = { ...updatedSubAreaData }; // No specific 'updatedAt' for SubArea in model
     allSubAreas[subAreaIndex] = updatedSubArea;
     setStoredItems<SubArea>(SUBAREAS_KEY, allSubAreas);
+    dispatchDataChangedEvent();
     return updatedSubArea;
   },
 
@@ -134,6 +140,7 @@ export const subAreaService = {
     subAreaProcesses.forEach(proc => {
         modelStorage.deleteModelsForProcess(proc.id);
     });
+    dispatchDataChangedEvent();
     return true;
   },
 

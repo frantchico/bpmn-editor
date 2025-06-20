@@ -118,7 +118,7 @@ export const SubAreaForm: React.FC<SubAreaFormProps> = ({ subArea, areaId, isOpe
       } else if (areaId) { // currentProjectId removed from condition
         console.log('[SubAreaForm] Calling onSave for create. Data:', subAreaDataToSave);
         await onSave(subAreaDataToSave as Omit<SubArea, 'id'>); // Cast to Omit<SubArea, 'id'> for create
-        toast.success(`SubArea '${name}' created successfully!`);
+        // toast.success(`SubArea '${name}' created successfully!`); // Removed as per request
       } else {
         // console.log('[SubAreaForm] Missing areaId or currentProjectId for create.'); // currentProjectId removed
         console.log('[SubAreaForm] Missing areaId for create.');

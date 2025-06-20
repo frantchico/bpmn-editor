@@ -87,11 +87,11 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({ project, isOpen, onClo
       if (project) { // Editing existing project
         // Types ensure onSave expects a full Project object for edits if id is present
         await onSave({ ...project, ...projectDataToSave });
-        toast.success(`Project '${name}' updated successfully!`);
+        // toast.success(`Project '${name}' updated successfully!`); // Removed as per request
       } else { // Creating new project
         // Types ensure onSave expects Omit<Project, 'id'|'createdAt'|'updatedAt'> for new
         await onSave(projectDataToSave);
-        toast.success(`Project '${name}' created successfully!`);
+        // toast.success(`Project '${name}' created successfully!`); // Removed as per request
       }
       onClose(); // Close dialog on successful save
     } catch (error: any) {
