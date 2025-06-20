@@ -105,6 +105,7 @@ export const AreaForm: React.FC<AreaFormProps> = ({ area, projectId, isOpen, onC
         toast.success(`Area '${name}' updated successfully!`);
       } else if (projectId) {
         console.log('[AreaForm] About to call onSave with areaDataToSave (create):', JSON.stringify(areaDataToSave, null, 2));
+        console.log('[AreaForm] typeof onSave before calling:', typeof onSave);
         await onSave(areaDataToSave);
         toast.success(`Area '${name}' created successfully!`);
       } else {
