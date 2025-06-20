@@ -118,6 +118,9 @@ export const AreaForm: React.FC<AreaFormProps> = ({ area, projectId, isOpen, onC
         }
 
         console.log('[AreaForm] typeof onSave before calling:', typeof onSave);
+        if (typeof onSave === 'function') {
+          console.log('[AreaForm] onSave.toString():', onSave.toString());
+        }
         await onSave(areaDataToSave);
         toast.success(`Area '${name}' created successfully!`);
       } else {
