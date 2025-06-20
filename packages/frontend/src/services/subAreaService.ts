@@ -45,8 +45,8 @@ export const subAreaService = {
   createSubArea: (subAreaData: Omit<SubArea, 'id'>): SubArea => {
     // projectId is no longer part of subAreaData due to type changes
     const { name, code, areaId, description, status } = subAreaData;
-    const trimmedName = name.trim();
-    const trimmedCode = code.trim();
+    const trimmedName = (name || '').trim(); // Default to empty string if name is null/undefined
+    const trimmedCode = (code || '').trim(); // Default to empty string if code is null/undefined
 
     if (!trimmedName) throw new Error("SubArea name cannot be empty.");
     if (!trimmedCode) throw new Error("SubArea code cannot be empty.");
