@@ -134,12 +134,42 @@ const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ projectId }) => {
   };
 
   // Updated to accept the full Area data (Omit 'id') from AreaForm
-  // const handleAreaFormSave = async (areaData: Omit<Area, 'id'>) => { // Original signature for reference
-  const handleAreaFormSave = async (areaData: Omit<Area, 'id'> | string) => { // Temporarily adjust signature to accept string too
-    console.log('[ProjectDashboard] ULTRA SIMPLIFIED handleAreaFormSave CALLED. Data:',
-                typeof areaData !== 'undefined' ? JSON.stringify(areaData, null, 2) : 'no data/undefined');
-    return Promise.resolve(true); // Keep satisfying await
-  };
+  const handleAreaFormSave = useCallback(async (areaData: Omit<Area, 'id'>) => {
+    console.log('[ProjectDashboard] handleAreaFormSave (useCallback version) entered. Received areaData:', JSON.stringify(areaData, null, 2));
+    console.log('[ProjectDashboard] Current project state (useCallback version):', project ? JSON.stringify(project, null, 2) : 'null');
+
+    if (!project) {
+      console.log('[ProjectDashboard] Project context is missing (useCallback version). Aborting save.');
+      toast.error("Project context is missing for creating an area.");
+      return false;
+    }
+    console.log('[ProjectDashboard] Project context check passed (useCallback version).');
+
+    if (areaData.projectId !== project.id) {
+        console.log(`[ProjectDashboard] ProjectID mismatch (useCallback version). Form projectId: ${areaData.projectId}, Dashboard projectId: ${project.id}. Aborting save.`);
+        toast.error("Area data has an inconsistent projectId. Cannot save.");
+        console.error("Mismatched projectId (useCallback version):", { formProjectId: areaData.projectId, dashboardProjectId: project.id });
+        return false;
+    }
+    console.log('[ProjectDashboard] ProjectID match check passed (useCallback version).');
+    console.log('[ProjectDashboard] All pre-checks passed (useCallback version). Attempting to create area...');
+
+    try {
+      console.log('[ProjectDashboard] Calling areaService.createArea (useCallback version) with data:', JSON.stringify(areaData, null, 2));
+      const savedArea = await areaService.createArea(areaData);
+
+      console.log('[ProjectDashboard] Area creation successful (useCallback version). Attempting to show success toast.');
+      toast.success(`Area "${savedArea.name}" created successfully.`);
+      fetchData(); // Refresh areas list
+      setIsAreaFormOpen(false);
+      return true;
+    } catch (e: any) {
+      console.log('[ProjectDashboard] Area creation failed (useCallback version). Attempting to show error toast.');
+      console.error("Error creating area (useCallback version):", e);
+      toast.error(`Failed to create area: ${e.message || String(e)}`);
+      return false;
+    }
+  }, [project, fetchData, setIsAreaFormOpen, toast, areaService]); // Add dependencies
 
   const handleViewProjectModels = () => console.log(`TODO: View models for project: ${projectId}`); // Placeholder
 

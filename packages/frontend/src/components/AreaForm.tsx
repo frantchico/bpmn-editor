@@ -105,22 +105,8 @@ export const AreaForm: React.FC<AreaFormProps> = ({ area, projectId, isOpen, onC
         toast.success(`Area '${name}' updated successfully!`);
       } else if (projectId) {
         console.log('[AreaForm] About to call onSave with areaDataToSave (create):', JSON.stringify(areaDataToSave, null, 2));
+        // Diagnostic logs removed as per subtask instructions
 
-        console.log('[AreaForm] Attempting direct synchronous test call to onSave...');
-        try {
-          if (typeof onSave === 'function') {
-            (onSave as Function)("DIRECT TEST CALL FROM AREA FORM"); // Cast to generic Function to bypass specific type for this test call
-          } else {
-            console.log('[AreaForm] onSave is not a function, cannot make direct test call.');
-          }
-        } catch (e: any) {
-          console.error('[AreaForm] Error during DIRECT TEST CALL to onSave:', e);
-        }
-
-        console.log('[AreaForm] typeof onSave before calling:', typeof onSave);
-        if (typeof onSave === 'function') {
-          console.log('[AreaForm] onSave.toString():', onSave.toString());
-        }
         await onSave(areaDataToSave);
         toast.success(`Area '${name}' created successfully!`);
       } else {
