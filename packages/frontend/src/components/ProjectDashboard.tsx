@@ -135,6 +135,8 @@ const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ projectId }) => {
 
   // Updated to accept the full Area data (Omit 'id') from AreaForm
   const handleAreaFormSave = async (areaData: Omit<Area, 'id'>) => {
+    // Original body commented out for diagnostics:
+    /*
     console.log('[ProjectDashboard] handleAreaFormSave entered. Received areaData:', JSON.stringify(areaData, null, 2));
     if (!project) { // project here is the currently viewed project in the dashboard
       console.log('[ProjectDashboard] Project context is missing. Aborting save.');
@@ -172,6 +174,12 @@ const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ projectId }) => {
       toast.error(`Failed to create area: ${e.message || String(e)}`);
       return false; // Indicate save failure
     }
+    */
+
+    // Temporary diagnostic body:
+    console.log('[ProjectDashboard] handleAreaFormSave SIMPLIFIED VERSION EXECUTED! Received areaData:', JSON.stringify(areaData, null, 2));
+    // To satisfy AreaForm's await and prevent it from hanging or erroring if it expects a promise resolving to boolean:
+    return Promise.resolve(true);
   };
 
   const handleViewProjectModels = () => console.log(`TODO: View models for project: ${projectId}`); // Placeholder
