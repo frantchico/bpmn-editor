@@ -34,8 +34,8 @@ export const SubAreaForm: React.FC<SubAreaFormProps> = ({ subArea, areaId, isOpe
       setCodeGenerationError(null);
       setIsSaving(false); // Reset
       if (subArea) {
-        setName(subArea.name);
-        setCode(subArea.code);
+        setName(subArea.name || '');
+        setCode(subArea.code || '');
         setDescription(subArea.description || '');
         setStatus(subArea.status || '');
       } else {
@@ -82,6 +82,11 @@ export const SubAreaForm: React.FC<SubAreaFormProps> = ({ subArea, areaId, isOpe
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     console.log('[SubAreaForm] handleSubmit called. Name:', name, 'Code:', code, 'areaId prop:', areaId, 'subArea prop:', subArea);
+
+    if (typeof name !== 'string' || typeof code !== 'string') {
+      toast.error('Name and Code must be strings. Please try again or contact support if the issue persists.');
+      return;
+    }
 
     console.log('[SubAreaForm] Validating name and code...');
     if (!name.trim() || !code.trim()) {

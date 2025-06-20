@@ -41,6 +41,12 @@ export const subAreaService = {
   createSubArea: (subAreaData: Omit<SubArea, 'id'>): SubArea => {
     // projectId is no longer part of subAreaData due to type changes
     const { name, code, areaId, description, status } = subAreaData;
+
+    if (typeof name !== 'string' || typeof code !== 'string') {
+      console.error("createSubArea service called with non-string name or code. Payload:", subAreaData);
+      throw new Error("SubArea name and code must be provided as strings to the service.");
+    }
+
     const trimmedName = name.trim();
     const trimmedCode = code.trim();
 

@@ -169,14 +169,29 @@ const AreaDashboard: React.FC<AreaDashboardProps> = ({ areaId }) => {
     // Simpler: we just trust area.id from this component's state.
     // SubAreaForm should be passed area.id, and can use it to populate its onSave data.
 
-    console.log('[AreaDashboard] handleSubAreaFormSave - Creating sub-area with name:', subAreaDataFromForm.name, 'under areaId:', area.id);
+    const payloadName = typeof subAreaDataFromForm.name === 'string' ? subAreaDataFromForm.name : '';
+    const payloadCode = typeof (subAreaDataFromForm as any).code === 'string' ? (subAreaDataFromForm as any).code : '';
+
+    if (!payloadName.trim() || !payloadCode.trim()) {
+        toast.error('SubArea name and code are required before saving.');
+        // It's important to return a value that matches the function's expected return for failure,
+        // which is `false` based on other return paths in this function.
+        return false;
+    }
+
+    console.log('[AreaDashboard] handleSubAreaFormSave - Creating sub-area with name:', payloadName, 'code:', payloadCode, 'under areaId:', area.id);
     try {
       await subAreaService.createSubArea({
-        name: subAreaDataFromForm.name,
-        description: subAreaDataFromForm.description || '',
-        areaId: area.id
+        // name: subAreaDataFromForm.name, // old
+        // description: subAreaDataFromForm.description || '', // old
+        // areaId: area.id // old
+        ...(subAreaDataFromForm as Omit<SubArea, 'id' | 'areaId' | 'projectId'>), // Spread other potential fields from form
+        name: payloadName,
+        code: payloadCode,
+        description: typeof subAreaDataFromForm.description === 'string' ? subAreaDataFromForm.description : '',
+        areaId: area.id,
       });
-      toast.success(`Sub-Area "${subAreaDataFromForm.name}" created successfully.`);
+      toast.success(`Sub-Area "${payloadName}" created successfully.`);
       fetchData(); // Refreshes subAreas list
       setIsSubAreaFormOpen(false);
       return true;
