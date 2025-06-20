@@ -31,6 +31,7 @@ const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ projectId }) => {
   const [isProjectFormOpen, setIsProjectFormOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [isAreaFormOpen, setIsAreaFormOpen] = useState(false);
+  const [editingArea, setEditingArea] = useState<Area | null>(null); // Added state for editing area
 
   const fetchData = useCallback(() => {
     setIsLoading(true);
@@ -125,13 +126,21 @@ const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ projectId }) => {
     }
   };
 
-  const handleCreateArea = () => { // No longer async, just opens form
-    if (!project) { // Ensure project context exists
-      toast.error("Project data not loaded. Cannot create area.");
+  // const handleCreateArea = () => { // No longer async, just opens form
+  //   if (!project) { // Ensure project context exists
+  //     toast.error("Project data not loaded. Cannot create area.");
+  //     return;
+  //   }
+  //   setIsAreaFormOpen(true);
+  // };
+  const handleOpenAreaForm = useCallback((areaToEdit: Area | null = null) => {
+    if (!project) {
+      toast.error("Project data not loaded. Cannot open area form.");
       return;
     }
+    setEditingArea(areaToEdit); // Set to area object for edit, or null for create
     setIsAreaFormOpen(true);
-  };
+  }, [project, setIsAreaFormOpen, setEditingArea, toast]); // Added useCallback and dependencies
 
   // Updated to accept the full Area data (Omit 'id') from AreaForm
   const handleAreaFormSave = useCallback(async (areaData: Omit<Area, 'id'>) => {
@@ -262,13 +271,13 @@ const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ projectId }) => {
               project={project}
               areas={areas} // Pass fetched areas to AreaList
               onNavigateToAreaSubAreas={(area) => navigateTo({ view: 'area', itemId: area.id })}
-              // Assuming AreaList doesn't directly modify areas that ProjectDashboard needs to be aware of
-              // without a page reload or further prop for callback. fetchData reloads areas for now.
+              onOpenCreateAreaForm={() => handleOpenAreaForm(null)} // For creating new
+              onOpenEditAreaForm={(area) => handleOpenAreaForm(area)} // For editing existing
             />
           ) : (
             <Card className="flex flex-col items-center justify-center p-6 border-dashed">
                <p className="text-muted-foreground mb-3">No areas have been created for this project yet.</p>
-               <Button onClick={handleCreateArea}><PlusCircle className="mr-2 h-4 w-4"/> Create First Area</Button>
+               <Button onClick={() => handleOpenAreaForm(null)}><PlusCircle className="mr-2 h-4 w-4"/> Create First Area</Button>
             </Card>
           )
         )}
@@ -283,15 +292,13 @@ const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ projectId }) => {
           project={editingProject}
         />
       )}
-      {project && !editingProject && ( // Ensure project context exists AND we are not editing an area (which would use a different form instance or logic)
+      {project && ( // project check is sufficient as AreaForm handles both create and edit
         <AreaForm
           isOpen={isAreaFormOpen}
-          onClose={() => setIsAreaFormOpen(false)}
+          onClose={() => { setIsAreaFormOpen(false); setEditingArea(null); }} // Also clear editingArea on close
           onSave={handleAreaFormSave}
-          area={null} // Explicitly null for creation mode
+          area={editingArea} // Use the new state here
           projectId={project.id} // Pass projectId for creation context
-          // Pass project name for display purposes in AreaForm if needed, e.g., parentProjectName={project.name}
-          // errorMessage={...} // If AreaForm has its own error message state to be displayed from here
         />
       )}
     </div>
