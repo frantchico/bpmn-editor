@@ -139,36 +139,30 @@ const SubAreaDashboard: React.FC<SubAreaDashboardProps> = ({ subAreaId }) => {
     setIsProcessFormOpen(true);
   };
 
-  const handleProcessFormSave = async (processData: Pick<Process, 'name' | 'description'>) => {
-    // The prompt suggests processDataFromForm is Pick<Process, 'name'> & { subAreaId: string }
-    // And to add a check: if (!subArea || subArea.id !== processDataFromForm.subAreaId) { ... error ... }
-    // This implies ProcessForm should send subAreaId.
-    // For consistency, let's assume processData is Pick<Process, 'name' | 'description'> from the form.
-    // And we use subArea.id from SubAreaDashboard's state.
-
-    const processDataFromForm = processData as Pick<Process, 'name' | 'description'> & { subAreaId?: string };
+  // Updated to handle full Process data from the form (excluding id and projectId)
+  const handleProcessFormSave = async (processData: Omit<Process, 'id' | 'projectId'>) => {
+    console.log('[SubAreaDashboard] handleProcessFormSave - Data received from ProcessForm:', JSON.stringify(processData, null, 2));
 
     if (!subArea) {
       toast.error("Sub-Area context is missing for creating a process.");
+      console.error('[SubAreaDashboard] handleProcessFormSave - Sub-Area context is missing.');
       return false;
     }
 
-    // The check as requested by prompt:
-    // if (processDataFromForm.subAreaId && subArea.id !== processDataFromForm.subAreaId) {
-    //   toast.error("SubArea ID mismatch. Cannot create process.");
-    //   console.error("SubArea ID mismatch. Dashboard subArea.id:", subArea.id, "Form subAreaId:", processDataFromForm.subAreaId);
-    //   return false;
-    // }
-    // Simpler: we just trust subArea.id from this component's state.
+    // ProcessForm is expected to populate subAreaId correctly in its processData payload.
+    // Validate that the subAreaId from the form data matches the current subArea.
+    if (processData.subAreaId !== subArea.id) {
+      toast.error("SubArea ID mismatch. Cannot create process under the wrong parent sub-area.");
+      console.error(`[SubAreaDashboard] Mismatch: processData.subAreaId (${processData.subAreaId}) vs current subArea.id (${subArea.id})`);
+      return false;
+    }
 
-    console.log('[SubAreaDashboard] handleProcessFormSave - Creating process with name:', processDataFromForm.name, 'under subAreaId:', subArea.id);
     try {
-      await processService.createProcess({
-        name: processDataFromForm.name,
-        description: processDataFromForm.description || '',
-        subAreaId: subArea.id
-      });
-      toast.success(`Process "${processDataFromForm.name}" created successfully.`);
+      // processData from ProcessForm should contain all necessary fields (name, code, description, status, model, subAreaId).
+      // processService.createProcess will derive projectId from subAreaId.
+      console.log('[SubAreaDashboard] Data being sent to processService.createProcess:', JSON.stringify(processData, null, 2));
+      await processService.createProcess(processData);
+      toast.success(`Process "${processData.name}" created successfully.`);
       fetchData(); // Refreshes processes list and potentially modelsCount
       setIsProcessFormOpen(false);
       return true;

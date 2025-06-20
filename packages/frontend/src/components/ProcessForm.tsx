@@ -148,19 +148,22 @@ export const ProcessForm: React.FC<ProcessFormProps> = ({ process, subAreaId, is
 
     // The 'process' prop contains the original process data if editing
     try {
-      if (process) {
+      if (process) { // Editing an existing process
         // For update, we pass all fields. The 'id' comes from 'process'.
         // The 'projectId' if present on 'process' will be part of '...process' spread,
         // but 'onSave' expects Omit<Process, 'projectId'> if id is present.
         // So, we explicitly create the object expected by onSave.
-        const updateData: Omit<Process, 'projectId'> = {
+        const updateData: Omit<Process, 'projectId'> = { // This is Omit<Process, 'projectId'> & { id: string } effectively
             ...(process), // spread existing process, includes id, and existing projectId
             ...dataToSave // spread fields from form, this has no projectId
         };
         delete (updateData as any).projectId; // Ensure projectId is not in the final saved object for update consistency
+
+        console.log('[ProcessForm] About to call onSave (Update). Data:', JSON.stringify(updateData, null, 2));
         await onSave(updateData);
         toast.success(`Process '${dataToSave.name}' updated successfully!`);
-      } else if (subAreaId) { // currentProjectId removed from condition
+      } else if (subAreaId) { // Creating a new process // currentProjectId removed from condition
+        console.log('[ProcessForm] About to call onSave (Create). Data:', JSON.stringify(dataToSave, null, 2));
         await onSave(dataToSave); // dataToSave is already Omit<Process, 'id' | 'projectId'>
         toast.success(`Process '${dataToSave.name}' created successfully!`);
       } else {
