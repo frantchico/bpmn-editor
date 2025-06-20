@@ -136,48 +136,30 @@ const AreaDashboard: React.FC<AreaDashboardProps> = ({ areaId }) => {
     setIsSubAreaFormOpen(true);
   };
 
-  const handleSubAreaFormSave = async (subAreaData: Pick<SubArea, 'name' | 'description'>) => {
-    // The type for subAreaData here is what comes from the SubAreaForm's onSave callback.
-    // The prompt suggests SubAreaForm will send `Pick<SubArea, 'name'> & { areaId: string }`
-    // However, it's more typical for the form to only send its own fields (name, description)
-    // and the parent (AreaDashboard) provides the context (area.id).
-    // Let's assume SubAreaForm sends Pick<SubArea, 'name' | 'description'> as currently typed
-    // and AreaDashboard provides area.id.
+  // Updated to handle full SubArea data from the form
+  const handleSubAreaFormSave = async (subAreaData: Omit<SubArea, 'id'>) => {
+    console.log('[AreaDashboard] handleSubAreaFormSave - Data received from SubAreaForm:', JSON.stringify(subAreaData, null, 2));
+
     if (!area) {
       toast.error("Area context is missing for creating a sub-area.");
+      console.error('[AreaDashboard] handleSubAreaFormSave - Area context is missing.');
       return false;
     }
-    // If subAreaDataFromForm includes areaId, we should validate it.
-    // For now, let's assume subAreaData is Pick<SubArea, 'name' | 'description'>
-    // and we use area.id from AreaDashboard's state.
-    // The prompt for handleSubAreaFormSave was:
-    // "It receives subAreaDataFromForm: Pick<SubArea, 'name'> & { areaId: string } from SubAreaForm."
-    // "Add a check: if (!area || area.id !== subAreaDataFromForm.areaId) { ... error ... }"
-    // This implies SubAreaForm *should* be passing areaId back.
-    // Let's adjust the type of subAreaData received here to match that expectation for the check.
-    // Then, when calling the service, we still use area.id from AreaDashboard's state for reliability.
 
-    const subAreaDataFromForm = subAreaData as Pick<SubArea, 'name' | 'description'> & { areaId?: string };
+    // Validate that the areaId in subAreaData (if provided by form, which it should be) matches the current area.
+    // SubAreaForm is expected to include areaId in its payload.
+    if (subAreaData.areaId !== area.id) {
+        toast.error("Area ID mismatch. Cannot create sub-area under the wrong parent.");
+        console.error(`[AreaDashboard] Mismatch: subAreaData.areaId (${subAreaData.areaId}) vs current area.id (${area.id})`);
+        return false;
+    }
 
-
-    // The check as requested by prompt:
-    // if (subAreaDataFromForm.areaId && (!area || area.id !== subAreaDataFromForm.areaId)) {
-    //   toast.error("Area ID mismatch. Cannot create sub-area.");
-    //   console.error("Area ID mismatch. Dashboard area.id:", area?.id, "Form areaId:", subAreaDataFromForm.areaId);
-    //   return false;
-    // }
-    // Simpler: we just trust area.id from this component's state.
-    // SubAreaForm should be passed area.id, and can use it to populate its onSave data.
-
-    console.log('[AreaDashboard] handleSubAreaFormSave - Creating sub-area with name:', subAreaDataFromForm.name, 'under areaId:', area.id);
     try {
-      await subAreaService.createSubArea({
-        name: subAreaDataFromForm.name,
-        description: subAreaDataFromForm.description || '',
-        areaId: area.id
-      });
-      toast.success(`Sub-Area "${subAreaDataFromForm.name}" created successfully.`);
-      fetchData(); // Refreshes subAreas list
+      // The subAreaData from the form should now contain all necessary fields including name, code, description, status, and areaId.
+      console.log('[AreaDashboard] Data being sent to subAreaService.createSubArea:', JSON.stringify(subAreaData, null, 2));
+      await subAreaService.createSubArea(subAreaData);
+      toast.success(`Sub-Area "${subAreaData.name}" created successfully.`);
+      fetchData(); // Refreshes subAreas list and other relevant data
       setIsSubAreaFormOpen(false);
       return true;
     } catch (e: any) {
