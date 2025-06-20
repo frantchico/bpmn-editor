@@ -134,52 +134,11 @@ const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ projectId }) => {
   };
 
   // Updated to accept the full Area data (Omit 'id') from AreaForm
-  const handleAreaFormSave = async (areaData: Omit<Area, 'id'>) => {
-    // Original body commented out for diagnostics:
-    /*
-    console.log('[ProjectDashboard] handleAreaFormSave entered. Received areaData:', JSON.stringify(areaData, null, 2));
-    if (!project) { // project here is the currently viewed project in the dashboard
-      console.log('[ProjectDashboard] Project context is missing. Aborting save.');
-      toast.error("Project context is missing for creating an area.");
-      return false;
-    }
-    console.log('[ProjectDashboard] Project context check passed.');
-    console.log('[ProjectDashboard] Current project state:', project ? JSON.stringify(project, null, 2) : 'null');
-    // The areaData from AreaForm should now contain all necessary fields including projectId.
-    // We ensure the projectId in areaData matches the current project dashboard's context,
-    // though AreaForm should already be setting this correctly using the projectId prop.
-    if (areaData.projectId !== project.id) {
-        console.log(`[ProjectDashboard] ProjectID mismatch. Form projectId: ${areaData.projectId}, Dashboard projectId: ${project.id}. Aborting save.`);
-        toast.error("Area data has an inconsistent projectId. Cannot save.");
-        console.error("Mismatched projectId:", { formProjectId: areaData.projectId, dashboardProjectId: project.id });
-        return false;
-    }
-    console.log('[ProjectDashboard] ProjectID match check passed.');
-
-    // console.log('[ProjectDashboard] handleAreaFormSave - Creating area with data from form:', areaData); // Old log, replaced by more specific ones
-    console.log('[ProjectDashboard] All pre-checks passed. Attempting to create area...');
-    try {
-      console.log('[ProjectDashboard] Calling areaService.createArea with data:', JSON.stringify(areaData, null, 2));
-      // Pass the full areaData from form, which includes name, code, description, status, projectId
-      await areaService.createArea(areaData);
-
-      console.log('[ProjectDashboard] Area creation successful. Attempting to show success toast.');
-      toast.success(`Area "${areaData.name}" created successfully.`);
-      fetchData(); // Refresh areas list
-      setIsAreaFormOpen(false);
-      return true;
-    } catch (e: any) {
-      console.log('[ProjectDashboard] Area creation failed. Attempting to show error toast.');
-      console.error("Error creating area:", e);
-      toast.error(`Failed to create area: ${e.message || String(e)}`);
-      return false; // Indicate save failure
-    }
-    */
-
-    // Temporary diagnostic body:
-    console.log('[ProjectDashboard] handleAreaFormSave SIMPLIFIED VERSION EXECUTED! Received areaData:', JSON.stringify(areaData, null, 2));
-    // To satisfy AreaForm's await and prevent it from hanging or erroring if it expects a promise resolving to boolean:
-    return Promise.resolve(true);
+  // const handleAreaFormSave = async (areaData: Omit<Area, 'id'>) => { // Original signature for reference
+  const handleAreaFormSave = async (areaData: Omit<Area, 'id'> | string) => { // Temporarily adjust signature to accept string too
+    console.log('[ProjectDashboard] ULTRA SIMPLIFIED handleAreaFormSave CALLED. Data:',
+                typeof areaData !== 'undefined' ? JSON.stringify(areaData, null, 2) : 'no data/undefined');
+    return Promise.resolve(true); // Keep satisfying await
   };
 
   const handleViewProjectModels = () => console.log(`TODO: View models for project: ${projectId}`); // Placeholder
