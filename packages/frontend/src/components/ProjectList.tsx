@@ -29,18 +29,19 @@ export const ProjectList: React.FC<ProjectListProps> = ({ onNavigateToProjectAre
     loadProjects();
   }, []);
 
-  const handleSaveProject = (projectData: Pick<Project, 'name'> | (Pick<Project, 'name'> & { id: string })) => {
+  const handleSaveProject = (projectData: Omit<Project, 'id' | 'createdAt' | 'updatedAt'> | Project) => {
     console.log('[ProjectList] handleSaveProject - projectData:', projectData);
     setFormErrorMessage(null); // Clear previous errors before attempting to save
     try {
       let savedProject: Project | undefined;
-      if ('id' in projectData) { // Editing existing project
+      if ('id' in projectData && projectData.id) { // Editing existing project
         // Add specific logging for update if needed, current focus is creation
-        savedProject = projectService.updateProject(projectData.id, { name: projectData.name });
+        // Ensure all updatable fields are passed to updateProject
+        savedProject = projectService.updateProject(projectData.id, projectData as Partial<Omit<Project, 'id' | 'createdAt' | 'updatedAt'>>);
         toast.success(`Project "${savedProject.name}" updated successfully.`);
       } else { // Creating new project
-        console.log('[ProjectList] Attempting to create project with name:', projectData.name);
-        savedProject = projectService.createProject({ name: projectData.name });
+        console.log('[ProjectList] Attempting to create project with data:', projectData);
+        savedProject = projectService.createProject(projectData as Omit<Project, 'id' | 'createdAt' | 'updatedAt'>);
         console.log('[ProjectList] Project created successfully by service:', savedProject);
         toast.success(`Project "${savedProject.name}" created successfully.`);
       }

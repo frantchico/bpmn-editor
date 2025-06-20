@@ -14,7 +14,7 @@ import { useNavigation } from '@/context/NavigationContext'; // Added import
 export const HierarchyManager: React.FC = () => {
   const { navigateTo } = useNavigation(); // Added useNavigation
   const [currentView, setCurrentView] = useState<'projects' | 'areas' | 'subareas' | 'processes'>('projects');
-  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null); // This is the state being logged before update
   const [selectedArea, setSelectedArea] = useState<Area | null>(null);
   const [selectedSubArea, setSelectedSubArea] = useState<SubArea | null>(null);
   const importFileRef = useRef<HTMLInputElement>(null);
@@ -24,7 +24,9 @@ export const HierarchyManager: React.FC = () => {
     setCurrentView('areas');
   };
 
-  const navigateToAreaSubAreas = (area: Area) => {
+  const navigateToAreaSubAreas = (area: Area, projectForArea: Project) => {
+    // console.log(`[HierarchyManager] Navigating to subareas for area: ${area?.name} (ID: ${area?.id}), project: ${projectForArea?.name} (ID: ${projectForArea?.id})`); // Optional: Keep a more concise log
+    setSelectedProject(projectForArea); // Ensure selectedProject is fresh
     setSelectedArea(area);
     setCurrentView('subareas');
   };

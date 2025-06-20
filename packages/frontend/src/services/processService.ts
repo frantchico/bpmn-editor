@@ -1,6 +1,7 @@
 import { Process } from '@/types';
 import { generateId } from '@/lib/utils';
 import { modelStorage } from './modelStorage'; // Correctly imported
+import { subAreaService } from './subAreaService';
 
 const PROCESSES_KEY = 'wfstudio_processes';
 // BPMN_MODELS_KEY_PREFIX removed as modelStorage handles this
@@ -40,13 +41,20 @@ export const processService = {
     const trimmedName = (processData.name || '').trim();
     const trimmedCode = (processData.code || '').trim();
     // Destructure other required fields for validation after initial access
-    const { subAreaId, projectId } = processData;
+    const { subAreaId, ...restOfProcessData } = processData; // projectId removed, rest captured
 
     if (!trimmedName) throw new Error("Process name cannot be empty.");
     if (!trimmedCode) throw new Error("Process code cannot be empty.");
     if (!subAreaId) throw new Error("SubArea ID is required to create a process.");
-    if (!projectId) throw new Error("Project ID is required to create a process.");
-    // Optional: Validate model, version, status, description if needed, though form provides defaults.
+    // if (!projectId) throw new Error("Project ID is required to create a process."); // Validation removed
+
+    const derivedProjectId = subAreaService.getProjectIdForSubArea(subAreaId);
+    if (!derivedProjectId) {
+      // Consider if this error message is user-facing or for console.
+      // It might be better to throw an error that can be caught and handled by the UI.
+      console.error(`[processService] Could not derive Project ID for process creation via SubArea ID: ${subAreaId}. Parent area or project might be missing.`);
+      throw new Error("Failed to determine the project context for this process. The parent sub-area or area may be invalid or inaccessible.");
+    }
 
     const allProcesses = getStoredItems<Process>(PROCESSES_KEY);
     const parentSubAreaProcesses = allProcesses.filter(p => p.subAreaId === subAreaId);
@@ -58,18 +66,26 @@ export const processService = {
       throw new Error(`A process with the code "${trimmedCode}" already exists in this sub-area.`);
     }
 
+    const { description: dataDescription, status: dataStatus, model: dataModel, version: dataVersion, updatedAt: dataUpdatedAt } = restOfProcessData as Omit<Process, 'id' | 'projectId' | 'name' | 'code' | 'subAreaId'>;
+
     const newProcess: Process = {
-      ...processData,
       id: generateId(),
-      name: trimmedName,
-      code: trimmedCode,
-      // description, status, model, version, updatedAt, projectId are spread from processData
+      name: trimmedName, // from original trimmedName
+      code: trimmedCode, // from original trimmedCode
+      subAreaId: subAreaId, // from original subAreaId
+      description: dataDescription || '',
+      status: dataStatus || 'Planned',
+      model: dataModel || '', // Default model if necessary
+      version: dataVersion === undefined ? 1 : dataVersion, // Default version
+      updatedAt: dataUpdatedAt || new Date().toISOString(), // Default updatedAt
+      projectId: derivedProjectId, // Use the derived project ID
     };
     setStoredItems<Process>(PROCESSES_KEY, [...allProcesses, newProcess]);
     return newProcess;
   },
 
   updateProcess: (id: string, updates: Partial<Omit<Process, 'id' | 'subAreaId' | 'projectId'>>): Process => {
+    // projectId is not directly updatable as it's derived.
     let allProcesses = getStoredItems<Process>(PROCESSES_KEY);
     const processIndex = allProcesses.findIndex(p => p.id === id);
 

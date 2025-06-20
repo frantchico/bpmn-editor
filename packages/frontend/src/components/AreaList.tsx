@@ -10,7 +10,7 @@ import { toast } from 'sonner';
 
 interface AreaListProps {
   project: Project;
-  onNavigateToAreaSubAreas: (area: Area) => void;
+  onNavigateToAreaSubAreas: (area: Area, project: Project) => void;
 }
 
 export const AreaList: React.FC<AreaListProps> = ({ project, onNavigateToAreaSubAreas }) => {
@@ -114,7 +114,7 @@ export const AreaList: React.FC<AreaListProps> = ({ project, onNavigateToAreaSub
               </CardHeader>
               <CardContent>
                 <CardDescription>Contains sub-areas and processes.</CardDescription>
-                 <Button variant="outline" size="sm" className="mt-4" onClick={() => onNavigateToAreaSubAreas(area)}>
+                <Button variant="outline" size="sm" className="mt-4" onClick={() => onNavigateToAreaSubAreas(area, project)}>
                    View Sub-Areas
                 </Button>
               </CardContent>
