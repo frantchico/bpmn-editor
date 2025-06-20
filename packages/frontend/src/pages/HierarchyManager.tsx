@@ -24,7 +24,9 @@ export const HierarchyManager: React.FC = () => {
     setCurrentView('areas');
   };
 
-  const navigateToAreaSubAreas = (area: Area) => {
+  const navigateToAreaSubAreas = (area: Area, projectForArea: Project) => {
+    // console.log(`[HierarchyManager] Navigating to subareas for area: ${area?.name} (ID: ${area?.id}), project: ${projectForArea?.name} (ID: ${projectForArea?.id})`); // Optional: Keep a more concise log
+    setSelectedProject(projectForArea); // Ensure selectedProject is fresh
     setSelectedArea(area);
     setCurrentView('subareas');
   };
