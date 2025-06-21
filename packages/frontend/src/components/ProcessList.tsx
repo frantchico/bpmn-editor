@@ -188,16 +188,26 @@ export const ProcessList: React.FC<ProcessListProps> = ({ subArea, area, project
                 {processModels[processItem.id] ? (
                   <>
                     <CardDescription>Model: {processModels[processItem.id]?.name}</CardDescription>
-                    <Button variant="default" size="sm" className="mt-2 w-full" onClick={() => onNavigateToEditor(processItem.id)}>
-                       <Eye className="mr-2 h-4 w-4" /> View/Edit Model
-                    </Button>
+                    <div className="mt-2 space-y-2">
+                      <Button variant="default" size="sm" className="w-full" onClick={() => onNavigateToEditor(processItem.id)}>
+                        <Edit3 className="mr-2 h-4 w-4" /> Editar Modelo
+                      </Button>
+                      <Button variant="default" size="sm" className="w-full" onClick={() => {/* Placeholder for deploy action */ toast.info('Deploy action to be implemented.');}}>
+                        <UploadCloud className="mr-2 h-4 w-4" /> Fazer Deploy
+                      </Button>
+                    </div>
                   </>
                 ) : (
                   <>
                     <CardDescription>No BPMN model linked.</CardDescription>
-                    <Button variant="outline" size="sm" className="mt-2 w-full" onClick={() => handleUploadClick(processItem.id)}>
-                      <UploadCloud className="mr-2 h-4 w-4" /> Upload BPMN Model
-                    </Button>
+                    <div className="mt-2 space-y-2">
+                      <Button variant="outline" size="sm" className="w-full" disabled>
+                        <Edit3 className="mr-2 h-4 w-4" /> Editar Modelo
+                      </Button>
+                      <Button variant="outline" size="sm" className="w-full" disabled>
+                        <UploadCloud className="mr-2 h-4 w-4" /> Fazer Deploy
+                      </Button>
+                    </div>
                   </>
                 )}
               </CardContent>
